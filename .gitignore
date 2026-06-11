@@ -36,3 +36,6 @@ next-env.d.ts
 # Claude Code local overrides + session data
 CLAUDE.local.md
 .claude/
+
+# Visual brainstorm companion
+.superpowers/
