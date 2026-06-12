@@ -39,21 +39,20 @@ These are the calls we made when the design comes under tension. When in doubt, 
 
 > To be finalized in Phase 1 when the landing page is built. This section gets concrete then.
 
-### Color palette (placeholder — finalize Phase 1)
+### Color palette (finalized Phase 1 — "Direction A")
 
-Working assumptions:
-- **Neutrals:** Slate or Zinc (the shadcn defaults are fine starting points). Use the full range, including the very darkest (`zinc-950`) and very lightest (`zinc-50`).
-- **Accent:** TBD. Candidates: a deep blue (`blue-700`), a graphite, or a warm earth tone. Avoid the saturated default `blue-600` of every Next.js demo.
-- **Semantic colors:** for thesis health — strengthening (a green that isn't kelly-green), weakening (a red that isn't fire-engine-red), neutral (a gray that has presence). Calibrate these together so the dashboard's color bar reads coherently.
+- **Neutrals:** **Zinc**, full range (`zinc-50` → `zinc-950`). The shadcn zinc theme provides the base CSS variables (`--background`, `--foreground`, `--border`, `--muted`, etc.) in `app/globals.css`.
+- **Accent:** **`#1E3A5F`** — deep blue, lower saturation than `blue-700`. Distinct from every default Tailwind blue, reads serious/trustworthy, contrast-safe. Wired as `--primary`.
+- **Semantic health colors** (warm/earthy variant "H2", calibrated together so the health bar reads "considered," not "alert"):
+  - Strengthening — **`#1F7A4D`** (`--health-strong`, exposed as `bg-health-strong`)
+  - Neutral — **`#A1A1AA`** (zinc-400, `--health-neutral`, `bg-health-neutral`)
+  - Weakening — **`#C0492F`** (warm brick, `--health-weak`, `bg-health-weak`)
 
-Decide and document the accent color before the end of Phase 1.
+### Typography (finalized Phase 1)
 
-### Typography (placeholder — finalize Phase 1)
-
-Working assumptions:
-- **Sans serif** for everything. Inter, Geist, or Söhne (or a closest free-equivalent like Geist Mono for code/data).
-- **One typeface family** — not three. If two, the second is a monospace for code, tickers, and numeric data.
-- **Weight scale:** 400 / 500 / 600. Use all three. 500 is the most underused weight in default web design — lean into it for subtle emphasis.
+- **Geist Sans** for all UI/body, **Geist Mono** for tickers, health scores, and numeric data. Loaded via the `geist` npm package (self-hosted, no Google fetch) and exposed as `--font-geist-sans` / `--font-geist-mono`, mapped to Tailwind's `font-sans` / `font-mono`.
+- **One family + its monospace** — Geist and Geist Mono are designed together.
+- **Weight scale:** 400 / 500 / 600. Use all three; lean on 500 for subtle emphasis.
 - **Line height** generous on prose (1.6-1.7), tight on data (1.3-1.4).
 
 ### Spacing
@@ -86,7 +85,9 @@ Working assumptions:
 
 **Goal:** A recruiter understands the product in 10 seconds. The "Try the demo" CTA gets clicked.
 
-> Decisions go here once Phase 1 is built.
+**Layout (Phase 1):** Asymmetric split hero — headline + lede + CTA on the left, a static product-preview card (thesis with claim-health bars) on the right, then a 3-step "how it works" strip divided by hairlines (not cards). Light theme. Generous marketing spacing.
+
+**CTA (Phase 1):** Primary CTA is **"Create your thesis" → Clerk sign-up**. "Try the demo" is intentionally **omitted until the demo-seed phase** — the pre-seeded demo thesis doesn't exist yet, so there's no dead/misleading link.
 
 ### `/theses` (thesis list)
 
@@ -118,9 +119,9 @@ Working assumptions:
 
 Newest first. Capture meaningful choices with one-sentence rationale.
 
-> Entries go here as the project develops. Examples of what to log:
->
-> - "Picked the accent color: `#1E3A5F` (deep blue, lower saturation than `blue-700`). Reason: distinct from every default Tailwind blue, reads as serious and trustworthy, contrast-safe on both light and dark backgrounds."
-> - "Health indicator: gradient bar from -1 (red `#B23A48`) through 0 (neutral `#71717A`) to +1 (green `#3F7D58`). Reason: the colors are dialed down from default red/green to read as 'considered' rather than 'alert.'"
-> - "Evidence cards are flat, not bordered. Reason: density on the dashboard matters more than separation, and the source link + timestamp do enough visual grouping."
+- **2026-06-11 — shadcn install method.** Components added by pulling canonical `new-york-v4` source directly from shadcn's registry (`ui.shadcn.com/r/...`), because the 2.x CLI fails against the current registry (`css: Invalid input`) and the 3.x CLI only produces the new Base UI `base-nova` style. We deliberately use classic **Radix** shadcn (`-b radix`, new-york, zinc) for recognizability and the `asChild` API. Add future components the same way (registry fetch) to stay on classic Radix.
+- **2026-06-11 — Accent color `#1E3A5F`** (deep blue, lower saturation than `blue-700`). Reason: distinct from every default Tailwind blue, reads serious/trustworthy, contrast-safe.
+- **2026-06-11 — Health colors** strengthening `#1F7A4D`, neutral `#A1A1AA`, weakening `#C0492F` (warm "H2" variant). Reason: dialed down from kelly-green/fire-engine-red to read "considered" rather than "alert"; the weakening red leans warm to pair with the deep blue.
+- **2026-06-11 — Typeface Geist Sans + Geist Mono** via the `geist` package. Reason: one designed-together family with a monospace for tickers/scores; self-hosted, no Google fetch.
+- **2026-06-11 — Design direction "A · Graphite & Deep Blue"** chosen over warm-editorial and near-monochrome alternatives. Reason: Linear-leaning, fintech-credible, restrained.
 
