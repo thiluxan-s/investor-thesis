@@ -35,6 +35,10 @@ async function countClaims(thesisId: string): Promise<number> {
   return row?.c ?? 0;
 }
 
+// Note: the 2–5 invariant is enforced check-then-act across separate queries.
+// neon-http has no interactive transactions, so two truly concurrent mutations
+// could race the bound. Acceptable for this single-user app; a DB-level guard
+// (e.g. a trigger) would be the fix if concurrency ever matters.
 export async function addClaim(
   userId: string,
   thesisId: string,
