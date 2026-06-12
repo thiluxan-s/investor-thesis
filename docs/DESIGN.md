@@ -93,13 +93,22 @@ These are the calls we made when the design comes under tension. When in doubt, 
 
 **Goal:** A signed-in user with multiple theses can scan health at a glance and click into the most relevant.
 
-> Decisions go here once Phase 2 is built. Consider: is each thesis a card or a flat row? Where does the health bar live? How prominent is the "New thesis" CTA?
+**Layout (Phase 2):** **Flat rows**, not cards — hairline `zinc-100` separators under a `zinc-200` top border, no per-row card chrome. Honors "flat over carded" + "density on data surfaces"; scales to many theses without the "three cards in a row" look. Each row is a three-column grid: left = ticker pill (`font-mono`, `zinc-100` bg) + Long/Short tag (health-strong green / health-weak brick) + title, with `N claims · {horizon}` meta beneath; middle = the health placeholder; right = status chip (`active` reads in the deep-blue accent, others muted zinc). The whole row is the click target (`<Link>`).
+
+**Health placeholder (Phase 2):** explicit **"Not analyzed yet"** with a dashed empty track — never a fabricated `0.00` score or filled bar. Real health bars replace this in Phase 4.
+
+**CTA:** "New thesis" is the single primary button, top-right, linking to the dedicated `/theses/new` route. The empty state repeats it as "Create your first thesis."
 
 ### `/theses/[id]` (thesis detail / dashboard)
 
 **Goal:** This is the main product surface. A user spends 95% of their app time here.
 
-> Decisions go here once Phase 2 is built and refined through Phases 3-5. Consider: how is the page laid out (sidebar with claim navigation? Full-width with everything stacked? Two-pane?)? Where does the agent run history live (collapsed sidebar? Tab? Slide-over?)? Where does the time-series health chart fit?
+**Layout (Phase 2):** **Two-column** — a wide main column for claims and a 280px right rail for reference + actions. Reasoning: the immutable meta (ticker/position/horizon) reads naturally as a compact rail separate from the editable claims that are the real work, and the rail gives Phase 4's health summary and Phase 3's run *list* a home without a redesign. Header = breadcrumb (`Theses / TICKER`) + title + ticker/direction/horizon badges, with a disabled **"Analyze now"** button carrying an "Available next phase" tooltip.
+
+- **Main column — claims:** each claim is flat (category badge + statement + Edit/Delete), separated by `zinc-100` hairlines. Editing expands the row in place into the shared `ClaimForm` (textarea + category select) — no modal. "+ Add claim" appends a `ClaimForm`; it's replaced by a "Maximum of 5 claims" note at the cap. Deleting the claim that would drop below 2 is blocked with a toast.
+- **Right rail:** a bordered meta card (ticker/position/horizon read-only; **status** is an inline editable select), then Notes (click-to-edit, "+ Add notes" when empty), then an "Analysis" section showing the honest "No analysis yet" placeholder, then a quiet "Delete thesis" guarded by an AlertDialog confirmation.
+
+**Future (Phases 3–4):** the agent-run *trace* (the wow moment) needs width and will open full-width (slide-over or sub-route), not in the narrow rail; the rail holds only the run list and health summary.
 
 ### Agent run trace view
 
@@ -111,7 +120,9 @@ These are the calls we made when the design comes under tension. When in doubt, 
 
 **Goal:** Two modes feel like one product, not like two separate flows bolted together.
 
-> Decisions go here when Phase 6 ships. Consider: how does the tabbed interface feel? When the drafter is running, what does the UI show? How are drafted claims rendered for review (cards with source highlights? Inline editable fields?)?
+**Manual flow (Phase 2):** A dedicated **`/theses/new` route** (not a modal) chosen so it scales to the Phase 6 paragraph tab + drafter-running state. Two steps: **(1) Position** — title, ticker (`font-mono`, auto-uppercased, 1–6 letters), Long/Short segmented toggle, time-horizon select, status select (Active default; Paused for "still planning"); **(2) Claims** — a live "N of 2–5" counter, added claims shown compact, and the **same `ClaimForm`** used on the detail page for adding the next. "Create" stays disabled until ≥2 valid claims. Notes are intentionally absent from the wizard (editable on detail) to avoid a wall of fields.
+
+> Phase 6 adds the "Start from a paragraph" tab here. Decisions on the tabbed interface, drafter-running state, and drafted-claim review go here when Phase 6 ships.
 
 ---
 
@@ -119,6 +130,12 @@ These are the calls we made when the design comes under tension. When in doubt, 
 
 Newest first. Capture meaningful choices with one-sentence rationale.
 
+- **2026-06-12 — Thesis list = flat rows, not cards.** Density on data surfaces; scales without the "three cards" look.
+- **2026-06-12 — Detail = two-column (main claims + 280px right rail).** Rail holds immutable meta + status + notes + analysis placeholder, and scales to Phase 3/4 (run list, health) without a redesign; the agent trace itself opens full-width.
+- **2026-06-12 — New-thesis = dedicated `/theses/new` route, not a modal.** Scales to the Phase 6 paragraph tab; multi-step in a modal fights the back button and reads cramped.
+- **2026-06-12 — Claim editing = inline via one shared `ClaimForm`.** Reused across wizard, add, and edit; on detail the row expands in place rather than opening a modal. Drag-reordering deferred — `ordinal` is append-order only for now.
+- **2026-06-12 — Status enum stays active/paused/closed (no `draft`).** "Still planning, don't run the agent" is exactly `paused`; a 4th status would overlap it for no gain.
+- **2026-06-12 — Health placeholder is explicit "Not analyzed yet".** Never a fabricated `0.00` or filled bar; real bars arrive in Phase 4.
 - **2026-06-11 — shadcn install method.** Components added by pulling canonical `new-york-v4` source directly from shadcn's registry (`ui.shadcn.com/r/...`), because the 2.x CLI fails against the current registry (`css: Invalid input`) and the 3.x CLI only produces the new Base UI `base-nova` style. We deliberately use classic **Radix** shadcn (`-b radix`, new-york, zinc) for recognizability and the `asChild` API. Add future components the same way (registry fetch) to stay on classic Radix.
 - **2026-06-11 — Accent color `#1E3A5F`** (deep blue, lower saturation than `blue-700`). Reason: distinct from every default Tailwind blue, reads serious/trustworthy, contrast-safe.
 - **2026-06-11 — Health colors** strengthening `#1F7A4D`, neutral `#A1A1AA`, weakening `#C0492F` (warm "H2" variant). Reason: dialed down from kelly-green/fire-engine-red to read "considered" rather than "alert"; the weakening red leans warm to pair with the deep blue.
