@@ -24,7 +24,8 @@ export async function updateThesis(thesisId: string, patch: unknown): Promise<Ac
   const parsed = UpdateThesisSchema.safeParse(patch);
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error.issues[0]?.message) };
   const userId = await requireUserId();
-  await thesesRepo.updateThesis(userId, thesisId, parsed.data);
+  const res = await thesesRepo.updateThesis(userId, thesisId, parsed.data);
+  if (!res.ok) return { ok: false, error: "Thesis not found" };
   revalidatePath(`/theses/${thesisId}`);
   revalidatePath("/theses");
   return { ok: true, data: undefined };
@@ -32,7 +33,8 @@ export async function updateThesis(thesisId: string, patch: unknown): Promise<Ac
 
 export async function deleteThesis(thesisId: string): Promise<ActionResult> {
   const userId = await requireUserId();
-  await thesesRepo.deleteThesis(userId, thesisId);
+  const res = await thesesRepo.deleteThesis(userId, thesisId);
+  if (!res.ok) return { ok: false, error: "Thesis not found" };
   revalidatePath("/theses");
   return { ok: true, data: undefined };
 }

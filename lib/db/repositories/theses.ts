@@ -6,6 +6,7 @@ import type { CreateThesisInput, UpdateThesisInput } from "@/schemas/thesis";
 
 export type ThesisListItem = Thesis & { claimCount: number };
 export type ThesisWithClaims = Thesis & { claims: Claim[] };
+export type ThesisMutationResult = { ok: true } | { ok: false; reason: "not_found" };
 
 /**
  * Atomic create via db.batch (neon-http has no interactive transactions).
@@ -76,15 +77,27 @@ export async function updateThesis(
   userId: string,
   thesisId: string,
   patch: UpdateThesisInput,
-): Promise<void> {
+): Promise<ThesisMutationResult> {
+  // Nothing to change — avoid an empty SET clause (Drizzle rejects it).
+  if (Object.keys(patch).length === 0) return { ok: true };
   // Drizzle omits undefined keys from the generated UPDATE, so a partial patch
-  // only touches the fields the caller provided.
-  await db
+  // only touches the fields the caller provided. `returning` lets us report
+  // not_found when the ownership-scoped WHERE matches no row.
+  const rows = await db
     .update(theses)
     .set(patch)
-    .where(and(eq(theses.id, thesisId), eq(theses.userId, userId)));
+    .where(and(eq(theses.id, thesisId), eq(theses.userId, userId)))
+    .returning({ id: theses.id });
+  return rows.length > 0 ? { ok: true } : { ok: false, reason: "not_found" };
 }
 
-export async function deleteThesis(userId: string, thesisId: string): Promise<void> {
-  await db.delete(theses).where(and(eq(theses.id, thesisId), eq(theses.userId, userId)));
+export async function deleteThesis(
+  userId: string,
+  thesisId: string,
+): Promise<ThesisMutationResult> {
+  const rows = await db
+    .delete(theses)
+    .where(and(eq(theses.id, thesisId), eq(theses.userId, userId)))
+    .returning({ id: theses.id });
+  return rows.length > 0 ? { ok: true } : { ok: false, reason: "not_found" };
 }
