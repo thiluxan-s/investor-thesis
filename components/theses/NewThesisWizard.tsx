@@ -17,6 +17,7 @@ import { CategoryBadge } from "@/components/theses/CategoryBadge";
 import {
   TIME_HORIZONS,
   CREATE_STATUSES,
+  TickerSchema,
   type ClaimInput,
   type PositionDirection,
   type TimeHorizon,
@@ -37,7 +38,8 @@ export function NewThesisWizard() {
   const [status, setStatus] = useState<(typeof CREATE_STATUSES)[number]>("active");
   const [claims, setClaims] = useState<ClaimInput[]>([]);
 
-  const tickerOk = /^[A-Z]{1,6}$/.test(ticker.trim().toUpperCase());
+  // Single source of truth for the ticker rule — same schema the server enforces.
+  const tickerOk = TickerSchema.safeParse(ticker).success;
   const titleOk = title.trim().length >= 3;
   const step1Ok = tickerOk && titleOk;
 
