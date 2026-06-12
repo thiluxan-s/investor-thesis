@@ -8,6 +8,13 @@
       "when": 1781219126400,
       "tag": "0000_short_gladiator",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781280004886,
+      "tag": "0001_bored_captain_stacy",
+      "breakpoints": true
     }
   ]
 }
