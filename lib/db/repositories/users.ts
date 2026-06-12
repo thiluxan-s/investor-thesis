@@ -11,6 +11,10 @@ export async function getUserByClerkId(clerkUserId: string): Promise<User | null
   return row ?? null;
 }
 
+/**
+ * Existence-only insert for the lazy fallback path (`ensureUserExists`). Leaves
+ * an existing row untouched — the webhook is the source of truth for email.
+ */
 export async function createUserFromClerk(input: {
   clerkUserId: string;
   email: string;
@@ -23,14 +27,19 @@ export async function createUserFromClerk(input: {
   return row ?? null;
 }
 
-export async function updateUserEmail(input: {
+/**
+ * Insert-or-refresh keyed on `clerk_user_id`. Used by the Clerk webhook so a
+ * `user.updated` self-heals a missing row and email stays current even if events
+ * arrive out of order.
+ */
+export async function upsertUserFromClerk(input: {
   clerkUserId: string;
   email: string;
 }): Promise<User | null> {
   const [row] = await db
-    .update(users)
-    .set({ email: input.email })
-    .where(eq(users.clerkUserId, input.clerkUserId))
+    .insert(users)
+    .values({ clerkUserId: input.clerkUserId, email: input.email })
+    .onConflictDoUpdate({ target: users.clerkUserId, set: { email: input.email } })
     .returning();
   return row ?? null;
 }

@@ -2,11 +2,7 @@ import { verifyWebhook } from "@clerk/nextjs/webhooks";
 import type { WebhookEvent } from "@clerk/nextjs/server";
 import type { NextRequest } from "next/server";
 import { handleUserEvent } from "@/lib/clerk/handle-user-event";
-import {
-  createUserFromClerk,
-  updateUserEmail,
-  deleteUserByClerkId,
-} from "@/lib/db/repositories/users";
+import { upsertUserFromClerk, deleteUserByClerkId } from "@/lib/db/repositories/users";
 
 export async function POST(req: NextRequest) {
   let evt: WebhookEvent;
@@ -18,8 +14,7 @@ export async function POST(req: NextRequest) {
   }
 
   const result = await handleUserEvent(evt, {
-    createUserFromClerk,
-    updateUserEmail,
+    upsertUserFromClerk,
     deleteUserByClerkId,
   });
 
