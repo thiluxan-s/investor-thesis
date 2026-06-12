@@ -149,3 +149,22 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Subtle staggered entrance for the landing hero — one orchestrated page-load
+   moment, Linear-style. CSS-only, disabled under reduced-motion. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .animate-rise {
+    animation: rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
