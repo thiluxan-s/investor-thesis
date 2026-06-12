@@ -7,18 +7,18 @@ import { CategoryBadge } from "@/components/theses/CategoryBadge";
 import type { Claim } from "@/lib/db/schema";
 import type { ClaimCategory, ClaimInput } from "@/schemas/thesis";
 import { MAX_CLAIMS } from "@/lib/theses/claim-invariants";
-import { addClaim, updateClaim, deleteClaim } from "@/app/(app)/theses/actions";
+import { addClaim, updateClaim, deleteClaim, type ActionResult } from "@/app/(app)/theses/actions";
 
 export function ClaimList({ thesisId, claims }: { thesisId: string; claims: Claim[] }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  function run(fn: () => Promise<{ ok: boolean; error?: string }>, onOk?: () => void) {
+  function run(fn: () => Promise<ActionResult>, onOk?: () => void) {
     startTransition(async () => {
       const res = await fn();
       if (res.ok) onOk?.();
-      else toast.error(res.error ?? "Something went wrong");
+      else toast.error(res.error);
     });
   }
 
