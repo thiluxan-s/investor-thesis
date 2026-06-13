@@ -1,0 +1,50 @@
+import "server-only";
+import { and, eq, sql } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { agentRuns, theses, type AgentRun } from "@/lib/db/schema";
+import type { AgentRunStatus, AgentRunTrigger } from "@/schemas/agent";
+
+export async function createAgentRun(thesisId: string, trigger: AgentRunTrigger): Promise<AgentRun> {
+  const [row] = await db.insert(agentRuns).values({ thesisId, trigger, status: "queued" }).returning();
+  return row;
+}
+
+export async function markRunning(runId: string): Promise<void> {
+  await db.update(agentRuns).set({ status: "running", startedAt: new Date() }).where(eq(agentRuns.id, runId));
+}
+
+export async function finishRun(
+  runId: string,
+  status: Extract<AgentRunStatus, "complete" | "partial" | "failed">,
+  opts: { error?: string } = {},
+): Promise<void> {
+  await db
+    .update(agentRuns)
+    .set({ status, completedAt: new Date(), error: opts.error ?? null })
+    .where(eq(agentRuns.id, runId));
+}
+
+export async function incrementRunTotals(
+  runId: string,
+  totals: { inputTokens: number; outputTokens: number; iterations?: number; evidence?: number },
+): Promise<void> {
+  await db
+    .update(agentRuns)
+    .set({
+      inputTokens: sql`${agentRuns.inputTokens} + ${totals.inputTokens}`,
+      outputTokens: sql`${agentRuns.outputTokens} + ${totals.outputTokens}`,
+      iterationsUsed: sql`${agentRuns.iterationsUsed} + ${totals.iterations ?? 0}`,
+      evidenceCollected: sql`${agentRuns.evidenceCollected} + ${totals.evidence ?? 0}`,
+    })
+    .where(eq(agentRuns.id, runId));
+}
+
+export async function getAgentRunForUser(userId: string, runId: string): Promise<AgentRun | null> {
+  const [row] = await db
+    .select({ run: agentRuns })
+    .from(agentRuns)
+    .innerJoin(theses, eq(theses.id, agentRuns.thesisId))
+    .where(and(eq(agentRuns.id, runId), eq(theses.userId, userId)))
+    .limit(1);
+  return row?.run ?? null;
+}
