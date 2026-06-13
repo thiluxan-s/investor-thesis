@@ -16,10 +16,11 @@ export const ALLOWED_DOMAINS = [
   "theverge.com",
   "arstechnica.com",
   "semianalysis.com",
+  // Company investor-relations hosts are allow-listed EXPLICITLY — never via a
+  // wildcard like `investor.*`, which would let any attacker-controlled host
+  // (e.g. investor.evil.test) through. Add issuers here as needed.
+  "investor.nvidia.com",
 ] as const;
-
-// Matches investor.nvidia.com, investors.apple.com, etc.
-const IR_SUBDOMAIN = /^investors?\./;
 
 export function isAllowedDomain(url: string): boolean {
   let host: string;
@@ -28,9 +29,6 @@ export function isAllowedDomain(url: string): boolean {
   } catch {
     return false;
   }
-
-  // Allow company IR subdomains (investor.* / investors.*)
-  if (IR_SUBDOMAIN.test(host)) return true;
 
   // Allow exact match or subdomain of a listed domain
   for (const domain of ALLOWED_DOMAINS) {

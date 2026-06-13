@@ -27,6 +27,11 @@ export const webFetchTool: Tool<WebFetchInput> = {
     try {
       const { status, html, finalUrl } = await ctx.fetcher(input.url);
       if (status !== 200) return { ok: false, error: `Fetch returned status ${status}` };
+      // Re-validate after redirects: fetch follows 3xx, so the final URL can be
+      // off the allow-list even though the input URL was allowed (SSRF guard).
+      if (!isAllowedDomain(finalUrl)) {
+        return { ok: false, error: `Refusing content from a non-allowed domain after redirect: ${finalUrl}` };
+      }
       const markdown = truncateToBytes(turndown.turndown(html), MAX_BYTES);
       const title = extractTitle(html);
       const source = {

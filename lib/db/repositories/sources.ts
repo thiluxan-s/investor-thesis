@@ -27,7 +27,10 @@ export async function findOrCreateSource(input: {
     .onConflictDoNothing({ target: sources.urlHash })
     .returning();
   if (row) return row;
+  // Lost an insert race — the conflicting row must exist. Throw (don't return
+  // undefined) so the Promise<Source> contract holds and callers never deref undefined.
   const [raced] = await db.select().from(sources).where(eq(sources.urlHash, hash)).limit(1);
+  if (!raced) throw new Error(`findOrCreateSource: source row not found after conflict for ${input.url}`);
   return raced;
 }
 

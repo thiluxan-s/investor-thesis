@@ -12,4 +12,7 @@ describe("isAllowedDomain", () => {
     expect(isAllowedDomain("https://randomblog.example/x")).toBe(false);
     expect(isAllowedDomain("https://notreuters.com.evil.test/x")).toBe(false);
   });
+  it("does not allow arbitrary investor.* hosts (no IR wildcard)", () => {
+    expect(isAllowedDomain("https://investor.evil.test/x")).toBe(false);
+  });
 });

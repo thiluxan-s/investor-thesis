@@ -30,4 +30,11 @@ describe("webFetchTool", () => {
     const res = await webFetchTool.execute({ url: "https://reuters.com/a" }, ctx(fetcher));
     expect(res.ok).toBe(false);
   });
+  it("refuses when a redirect lands on a non-allowed final domain (SSRF guard)", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue({ status: 200, html: "<html></html>", finalUrl: "http://169.254.169.254/latest/meta-data" });
+    const res = await webFetchTool.execute({ url: "https://reuters.com/a" }, ctx(fetcher));
+    expect(res.ok).toBe(false);
+  });
 });
