@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { agentRuns, theses, type AgentRun } from "@/lib/db/schema";
 import type { AgentRunStatus, AgentRunTrigger } from "@/schemas/agent";
@@ -47,4 +47,14 @@ export async function getAgentRunForUser(userId: string, runId: string): Promise
     .where(and(eq(agentRuns.id, runId), eq(theses.userId, userId)))
     .limit(1);
   return row?.run ?? null;
+}
+
+export async function listAgentRunsForThesis(userId: string, thesisId: string): Promise<AgentRun[]> {
+  const rows = await db
+    .select({ run: agentRuns })
+    .from(agentRuns)
+    .innerJoin(theses, eq(theses.id, agentRuns.thesisId))
+    .where(and(eq(agentRuns.thesisId, thesisId), eq(theses.userId, userId)))
+    .orderBy(desc(agentRuns.createdAt));
+  return rows.map((r) => r.run);
 }

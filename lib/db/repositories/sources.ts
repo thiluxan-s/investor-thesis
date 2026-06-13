@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, gte } from "drizzle-orm";
+import { and, eq, gte, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { sources, evidence, agentRuns, type Source } from "@/lib/db/schema";
 import { urlHash } from "@/lib/ai/url";
@@ -43,4 +43,11 @@ export async function listRecentSourceUrlsForThesis(thesisId: string, sinceDays:
     .innerJoin(agentRuns, eq(agentRuns.id, evidence.agentRunId))
     .where(and(eq(agentRuns.thesisId, thesisId), gte(sources.createdAt, since)));
   return rows.map((r) => r.url);
+}
+
+// Sources are public/shared — no user scoping (the referencing run is already
+// ownership-checked by the caller).
+export async function getSourcesByIds(ids: string[]): Promise<Source[]> {
+  if (ids.length === 0) return [];
+  return db.select().from(sources).where(inArray(sources.id, ids));
 }
