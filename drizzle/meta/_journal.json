@@ -15,6 +15,13 @@
       "when": 1781280004886,
       "tag": "0001_bored_captain_stacy",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781346117233,
+      "tag": "0002_sharp_human_robot",
+      "breakpoints": true
     }
   ]
 }
