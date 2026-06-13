@@ -28,7 +28,7 @@ export function ClaimList({ thesisId, claims }: { thesisId: string; claims: Clai
         Claims · {claims.length}
       </p>
 
-      {claims.map((c) =>
+      {claims.map((c, idx) =>
         editingId === c.id ? (
           <div key={c.id} className="py-3.5">
             <ClaimForm
@@ -43,7 +43,10 @@ export function ClaimList({ thesisId, claims }: { thesisId: string; claims: Clai
           </div>
         ) : (
           <div key={c.id} className="border-b border-zinc-100 py-3.5">
-            <CategoryBadge category={c.category as ClaimCategory} />
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[11px] font-semibold text-zinc-400">{idx + 1}</span>
+              <CategoryBadge category={c.category as ClaimCategory} />
+            </div>
             <p className="mt-1.5 text-sm leading-relaxed text-zinc-800">{c.statement}</p>
             <div className="mt-1.5 flex gap-3.5 text-xs text-zinc-400">
               <button type="button" className="hover:text-zinc-700" onClick={() => setEditingId(c.id)}>

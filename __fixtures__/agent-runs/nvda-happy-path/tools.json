@@ -1,0 +1,23 @@
+[
+  {
+    "results": [
+      {
+        "title": "Nvidia data-center revenue jumps",
+        "url": "https://www.reuters.com/technology/nvidia-data-center-q3",
+        "snippet": "Data-center revenue rose 41% YoY"
+      }
+    ]
+  },
+  {
+    "url": "https://www.reuters.com/technology/nvidia-data-center-q3",
+    "title": "Nvidia data-center revenue jumps",
+    "markdown": "# Nvidia\nData-center revenue rose 41% year over year in Q3.",
+    "source": {
+      "sourceUrl": "https://www.reuters.com/technology/nvidia-data-center-q3",
+      "title": "Nvidia data-center revenue jumps",
+      "domain": "reuters.com",
+      "rawContentHash": "deadbeef",
+      "contentExcerpt": "# Nvidia\nData-center revenue rose 41% year over year in Q3."
+    }
+  }
+]

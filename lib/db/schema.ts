@@ -4,9 +4,11 @@ import {
   uuid,
   text,
   integer,
+  jsonb,
   numeric,
   timestamp,
   index,
+  vector,
 } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
@@ -91,3 +93,98 @@ export type Thesis = typeof theses.$inferSelect;
 export type NewThesis = typeof theses.$inferInsert;
 export type Claim = typeof claims.$inferSelect;
 export type NewClaim = typeof claims.$inferInsert;
+
+// Enum values mirror schemas/agent.ts — keep in sync.
+export const agentRunStatus = pgEnum("agent_run_status", [
+  "queued",
+  "running",
+  "complete",
+  "partial",
+  "failed",
+]);
+export const agentRunTrigger = pgEnum("agent_run_trigger", ["manual", "scheduled"]);
+
+export const sources = pgTable(
+  "sources",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    url: text("url").notNull(),
+    urlHash: text("url_hash").notNull().unique(),
+    domain: text("domain").notNull(),
+    title: text("title"),
+    fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull().defaultNow(),
+    rawContentHash: text("raw_content_hash"),
+    contentExcerpt: text("content_excerpt"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("sources_domain_idx").on(t.domain), index("sources_raw_content_hash_idx").on(t.rawContentHash)],
+);
+
+export const agentRuns = pgTable(
+  "agent_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    thesisId: uuid("thesis_id")
+      .notNull()
+      .references(() => theses.id, { onDelete: "cascade" }),
+    status: agentRunStatus("status").notNull().default("queued"),
+    trigger: agentRunTrigger("trigger").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    iterationsUsed: integer("iterations_used").notNull().default(0),
+    inputTokens: integer("input_tokens").notNull().default(0),
+    outputTokens: integer("output_tokens").notNull().default(0),
+    evidenceCollected: integer("evidence_collected").notNull().default(0),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [index("agent_runs_thesis_id_idx").on(t.thesisId)],
+);
+
+export const agentRunIterations = pgTable(
+  "agent_run_iterations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    agentRunId: uuid("agent_run_id")
+      .notNull()
+      .references(() => agentRuns.id, { onDelete: "cascade" }),
+    iterationNumber: integer("iteration_number").notNull(),
+    requestMessages: jsonb("request_messages").notNull(),
+    responseContent: jsonb("response_content").notNull(),
+    toolCalls: jsonb("tool_calls"),
+    stopReason: text("stop_reason"),
+    inputTokens: integer("input_tokens").notNull().default(0),
+    outputTokens: integer("output_tokens").notNull().default(0),
+    durationMs: integer("duration_ms").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("agent_run_iterations_run_iter_idx").on(t.agentRunId, t.iterationNumber)],
+);
+
+export const evidence = pgTable(
+  "evidence",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    agentRunId: uuid("agent_run_id")
+      .notNull()
+      .references(() => agentRuns.id, { onDelete: "cascade" }),
+    sourceId: uuid("source_id")
+      .notNull()
+      .references(() => sources.id),
+    extractedText: text("extracted_text").notNull(),
+    extractedTextEmbedding: vector("extracted_text_embedding", { dimensions: 1536 }),
+    claimIndices: integer("claim_indices").array().notNull().default([]),
+    agentReasoning: text("agent_reasoning"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("evidence_agent_run_id_idx").on(t.agentRunId), index("evidence_source_id_idx").on(t.sourceId)],
+);
+
+export type Source = typeof sources.$inferSelect;
+export type AgentRun = typeof agentRuns.$inferSelect;
+export type AgentRunIteration = typeof agentRunIterations.$inferSelect;
+export type Evidence = typeof evidence.$inferSelect;

@@ -1,18 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { requireUserId } from "@/lib/auth/require-user";
 import { getThesisForUser } from "@/lib/db/repositories/theses";
+import { listAgentRunsForThesis } from "@/lib/db/repositories/agent-runs";
+import { isTerminalStatus } from "@/lib/agent/run-status";
 import { DIRECTION_LABELS, HORIZON_LABELS } from "@/lib/theses/labels";
 import { ClaimList } from "@/components/theses/ClaimList";
 import { StatusSelect } from "@/components/theses/StatusSelect";
 import { NotesEditor } from "@/components/theses/NotesEditor";
 import { DeleteThesisButton } from "@/components/theses/DeleteThesisButton";
+import { AnalyzeNowButton } from "@/components/agent/AnalyzeNowButton";
+import { AgentRunPanel } from "@/components/agent/AgentRunPanel";
 
 export default async function ThesisDetailPage({
   params,
@@ -23,6 +21,9 @@ export default async function ThesisDetailPage({
   const userId = await requireUserId();
   const thesis = await getThesisForUser(userId, thesisId);
   if (!thesis) notFound();
+
+  const runs = await listAgentRunsForThesis(userId, thesis.id);
+  const activeRun = runs.find((r) => !isTerminalStatus(r.status));
 
   const dirClass = thesis.positionDirection === "long" ? "text-[#1F7A4D]" : "text-[#C0492F]";
 
@@ -45,16 +46,7 @@ export default async function ThesisDetailPage({
             <span className="text-xs text-zinc-400">· {HORIZON_LABELS[thesis.timeHorizon]}</span>
           </div>
         </div>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span tabIndex={0}>
-              <Button variant="outline" disabled>
-                Analyze now
-              </Button>
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>Available next phase</TooltipContent>
-        </Tooltip>
+        <AnalyzeNowButton thesisId={thesis.id} disabled={Boolean(activeRun)} />
       </div>
 
       <div className="mt-8 grid grid-cols-[1fr_280px] gap-8">
@@ -78,9 +70,7 @@ export default async function ThesisDetailPage({
 
           <div>
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Analysis</p>
-            <div className="rounded-lg border border-dashed border-zinc-300 px-4 py-5 text-center text-xs text-zinc-400">
-              No analysis yet — available next phase
-            </div>
+            <AgentRunPanel thesisId={thesis.id} runs={runs} />
           </div>
 
           <div className="border-t border-zinc-100 pt-3">
