@@ -1,0 +1,10 @@
+[
+  {
+    "content": [
+      { "type": "thinking", "thinking": "I searched but found nothing reputable bearing on these claims." },
+      { "type": "tool_use", "id": "tu_return", "name": "return_result", "input": { "evidence": [] } }
+    ],
+    "stop_reason": "tool_use",
+    "usage": { "input_tokens": 1100, "output_tokens": 60 }
+  }
+]

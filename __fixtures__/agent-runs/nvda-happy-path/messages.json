@@ -1,0 +1,41 @@
+[
+  {
+    "content": [
+      { "type": "thinking", "thinking": "The thesis is about NVDA data-center revenue. I'll search recent coverage." },
+      { "type": "tool_use", "id": "tu_search", "name": "web_search", "input": { "query": "NVDA data center revenue Q3 2026", "limit": 5 } }
+    ],
+    "stop_reason": "tool_use",
+    "usage": { "input_tokens": 1200, "output_tokens": 120 }
+  },
+  {
+    "content": [
+      { "type": "thinking", "thinking": "Reuters looks authoritative. I'll read it." },
+      { "type": "tool_use", "id": "tu_fetch", "name": "web_fetch", "input": { "url": "https://www.reuters.com/technology/nvidia-data-center-q3" } }
+    ],
+    "stop_reason": "tool_use",
+    "usage": { "input_tokens": 1500, "output_tokens": 90 }
+  },
+  {
+    "content": [
+      { "type": "thinking", "thinking": "I have a concrete figure tied to claim 0. Returning." },
+      {
+        "type": "tool_use",
+        "id": "tu_return",
+        "name": "return_result",
+        "input": {
+          "evidence": [
+            {
+              "source_url": "https://www.reuters.com/technology/nvidia-data-center-q3",
+              "title": "Nvidia data-center revenue jumps",
+              "snippet": "Data-center revenue rose 41% YoY",
+              "claim_indices": [0],
+              "extracted_text": "Nvidia reported data-center revenue rose 41% year over year in Q3."
+            }
+          ]
+        }
+      }
+    ],
+    "stop_reason": "tool_use",
+    "usage": { "input_tokens": 1800, "output_tokens": 200 }
+  }
+]
