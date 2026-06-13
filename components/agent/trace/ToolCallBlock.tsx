@@ -23,7 +23,7 @@ export function ToolCallBlock({ call }: { call: TraceToolCall }) {
       </button>
       {open && (
         <pre className="overflow-x-auto border-t border-zinc-100 px-3 py-2 text-[11px] leading-relaxed text-zinc-600">
-          {call.isError ? call.error : JSON.stringify(call.output, null, 2)}
+          {call.isError ? call.error : JSON.stringify(call.output ?? call.input, null, 2)}
         </pre>
       )}
     </div>
