@@ -8,11 +8,13 @@ import { EvidenceCard } from "./EvidenceCard";
 export function IterationCard({
   iteration,
   active,
+  index,
   evidence,
   sourcesById,
 }: {
   iteration: AgentRunIteration;
   active: boolean;
+  index: number;
   evidence: Evidence[];
   sourcesById: Map<string, Source>;
 }) {
@@ -22,7 +24,9 @@ export function IterationCard({
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, ease: "easeOut" }}
+      // Gentle staggered reveal on first load; new iterations (fresh keys) animate
+      // in on their own as polling discovers them.
+      transition={{ duration: 0.28, ease: "easeOut", delay: Math.min(index, 6) * 0.04 }}
       className="relative mb-7"
     >
       <span
@@ -41,10 +45,10 @@ export function IterationCard({
         </span>
       </div>
       {thinking && (
-        <p className="my-2 text-[13.5px] leading-relaxed text-zinc-600">
-          <span className="mr-1.5 text-[11px] uppercase tracking-wide text-zinc-400">Reasoning</span>
-          {thinking}
-        </p>
+        <div className="my-2.5">
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400">Reasoning</p>
+          <p className="whitespace-pre-line text-[13.5px] leading-relaxed text-zinc-600">{thinking}</p>
+        </div>
       )}
       {calls.map((c, i) => (
         <ToolCallBlock key={i} call={c} />

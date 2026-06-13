@@ -114,7 +114,15 @@ These are the calls we made when the design comes under tension. When in doubt, 
 
 **Goal:** The wow moment of the entire app. Where a recruiter lingers.
 
-> Decisions go here when Phase 3 ships. Consider: is the trace a vertical timeline, a chat-style sequence, or something more spatial? How is streaming presented? How are tool calls rendered (collapsed by default? Always expanded?)? How are tool errors made obvious without being alarming?
+**Layout (Phase 3b):** Full-width **sub-route** `/theses/[id]/runs/[runId]` (linkable, room to breathe), rendered as an **immersive single-column vertical timeline**: a 2px spine with numbered iteration nodes (deep-blue ring); each iteration shows a **Reasoning** block (summarized thinking, label-above-body), its **tool calls** (collapsible — name + mono arg preview, expand for output), then **evidence cards inline** at the iteration that produced them (green left-accent, `claim N` tags). A **sticky header** carries status + ticker + `iterations · evidence · ~$cost · duration`.
+
+**Streaming vs polled (Phase 3b):** the run executes in the background (Inngest); the page polls every ~3s via `router.refresh()`. New iteration cards **spring/fade in** (Motion) as polling discovers them; the active iteration's node **pulses**. Not token-streaming — honest to the no-SSE-in-v1 call, still alive. Initial load uses a gentle index-staggered reveal.
+
+**Tool calls:** collapsed by default (name + truncated mono args visible); expand for the JSON output. **Errors are calm, not alarming** — an allow-list refusal shows a brick `refused` chip + brick-tinted bar (`#C0492F` / `#fbf1ef`), not a red alert.
+
+**Cost:** an estimate from Opus token pricing, shown as "~$X" (clearly approximate), in Geist Mono — the credibility detail.
+
+**Run card (rail, Phase 3b):** the `/theses/[id]` rail "Analysis" slot now hosts the live `AgentRunPanel` (replacing the Phase-2 "No analysis yet" placeholder): latest run as a compact card (status pill with pulse, live `iters · evidence · ~$cost`, relative time, "View trace →"), an earlier-runs disclosure, and the same `router.refresh()` polling while a run is non-terminal. "Analyze now" in the header is now live (disabled while a run is in progress).
 
 ### New thesis flow (manual + paragraph)
 
@@ -130,6 +138,11 @@ These are the calls we made when the design comes under tension. When in doubt, 
 
 Newest first. Capture meaningful choices with one-sentence rationale.
 
+- **2026-06-13 — Trace view = immersive single-column timeline** (numbered spine, reasoning → collapsible tool calls → inline evidence) at a full-width sub-route. Reads as "watch the agent think," the memorable wow vs a dashboard.
+- **2026-06-13 — Live updates = polled incremental reveal, not token-streaming.** `router.refresh()` every ~3s; new cards spring/fade in via Motion; active node pulses. Honest to ARCHITECTURE's no-SSE-in-v1 call.
+- **2026-06-13 — Tool errors render calm, not alarming** — brick `refused` chip + tint for allow-list blocks, never a red alert.
+- **2026-06-13 — Run cost shown as "~$X"** (Geist Mono) estimated from Opus token pricing — a credibility detail, clearly approximate.
+- **2026-06-13 — Motion (framer-motion) adopted** for the trace's reveal animations (one or two thoughtful moments; no gratuitous animation), per the CLAUDE.md reach-for-when-relevant guidance.
 - **2026-06-12 — Thesis list = flat rows, not cards.** Density on data surfaces; scales without the "three cards" look.
 - **2026-06-12 — Detail = two-column (main claims + 280px right rail).** Rail holds immutable meta + status + notes + analysis placeholder, and scales to Phase 3/4 (run list, health) without a redesign; the agent trace itself opens full-width.
 - **2026-06-12 — New-thesis = dedicated `/theses/new` route, not a modal.** Scales to the Phase 6 paragraph tab; multi-step in a modal fights the back button and reads cramped.

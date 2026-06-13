@@ -45,6 +45,7 @@ export default async function TracePage({
           <IterationCard
             key={it.id}
             iteration={it}
+            index={idx}
             active={!isTerminalStatus(run.status) && idx === iterations.length - 1}
             evidence={it.id === lastIterId ? evidence : []}
             sourcesById={sourcesById}
