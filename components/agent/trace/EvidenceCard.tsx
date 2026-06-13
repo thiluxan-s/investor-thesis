@@ -10,7 +10,7 @@ export function EvidenceCard({ ev, domain }: { ev: Evidence; domain: string }) {
             key={i}
             className="rounded bg-[#eef4ef] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#1F7A4D]"
           >
-            claim {i}
+            claim {i + 1}
           </span>
         ))}
       </div>
