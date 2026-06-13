@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { AgentRun } from "@/lib/db/schema";
 import { StatusPill } from "@/components/agent/StatusPill";
@@ -12,6 +13,25 @@ function timeAgo(d: Date): string {
   if (s < 3600) return `${Math.floor(s / 60)}m ago`;
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
   return `${Math.floor(s / 86400)}d ago`;
+}
+
+// Relative time depends on the current clock, so computing it during render
+// causes a server/client hydration mismatch and freezes once a run is terminal
+// (no more polling re-renders). Compute after mount and tick to keep it fresh.
+function TimeAgo({ date, className }: { date: Date; className?: string }) {
+  // Initializer runs at hydration with the client clock, so the mounted value is
+  // already fresh; suppressHydrationWarning covers the server/client first-render
+  // diff. The interval keeps it ticking after a run goes terminal.
+  const [label, setLabel] = useState(() => timeAgo(date));
+  useEffect(() => {
+    const id = setInterval(() => setLabel(timeAgo(date)), 30_000);
+    return () => clearInterval(id);
+  }, [date]);
+  return (
+    <span suppressHydrationWarning className={className}>
+      {label}
+    </span>
+  );
 }
 
 export function AgentRunPanel({ thesisId, runs }: { thesisId: string; runs: AgentRun[] }) {
@@ -32,7 +52,7 @@ export function AgentRunPanel({ thesisId, runs }: { thesisId: string; runs: Agen
       >
         <div className="flex items-center justify-between">
           <StatusPill status={latest.status} />
-          <span className="text-[11px] text-zinc-400">{timeAgo(latest.createdAt)}</span>
+          <TimeAgo date={latest.createdAt} className="text-[11px] text-zinc-400" />
         </div>
         <p className="mt-2 font-mono text-xs text-zinc-500">
           {latest.iterationsUsed} iters · {latest.evidenceCollected} evidence ·{" "}
@@ -56,7 +76,7 @@ export function AgentRunPanel({ thesisId, runs }: { thesisId: string; runs: Agen
                 className="flex items-center justify-between rounded px-1 py-0.5 hover:bg-zinc-50"
               >
                 <StatusPill status={r.status} />
-                <span className="text-[11px] text-zinc-400">{timeAgo(r.createdAt)}</span>
+                <TimeAgo date={r.createdAt} className="text-[11px] text-zinc-400" />
               </Link>
             ))}
           </div>
