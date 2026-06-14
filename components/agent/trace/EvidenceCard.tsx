@@ -1,6 +1,5 @@
 import type { Evidence } from "@/lib/db/schema";
 import type { EvidenceVerdict } from "@/lib/agent/evidence-verdicts";
-import { formatHealthScore } from "@/lib/health/display";
 
 const IMPACT_STYLE = {
   strengthens: { dot: "bg-health-strong", text: "text-health-strong", label: "strengthens" },
@@ -36,7 +35,7 @@ export function EvidenceCard({
                       <span className={`size-1.5 rounded-full ${style.dot}`} aria-hidden />
                       <span className={`font-medium ${style.text}`}>{style.label}</span>
                       {v.confidence !== null && (
-                        <span className="font-mono tabular-nums text-zinc-400">{formatHealthScore(v.confidence)}</span>
+                        <span className="font-mono tabular-nums text-zinc-400">{v.confidence.toFixed(2)}</span>
                       )}
                     </>
                   ) : (
