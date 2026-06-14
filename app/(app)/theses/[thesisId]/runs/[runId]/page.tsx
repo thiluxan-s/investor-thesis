@@ -6,6 +6,8 @@ import { getAgentRunForUser } from "@/lib/db/repositories/agent-runs";
 import { listIterations } from "@/lib/db/repositories/agent-run-iterations";
 import { listEvidenceForRun } from "@/lib/db/repositories/evidence";
 import { getSourcesByIds } from "@/lib/db/repositories/sources";
+import { listLinksForEvidenceIds } from "@/lib/db/repositories/claim-evidence-links";
+import { buildEvidenceVerdicts, type EvidenceVerdict } from "@/lib/agent/evidence-verdicts";
 import { isTerminalStatus } from "@/lib/agent/run-status";
 import { PollWhileRunning } from "@/components/agent/PollWhileRunning";
 import { RunHeader } from "@/components/agent/trace/RunHeader";
@@ -24,6 +26,24 @@ export default async function TracePage({
   const [iterations, evidence] = await Promise.all([listIterations(run.id), listEvidenceForRun(run.id)]);
   const srcRows = await getSourcesByIds([...new Set(evidence.map((e) => e.sourceId))]);
   const sourcesById = new Map(srcRows.map((s) => [s.id, s]));
+
+  // Evaluator verdicts for this run's evidence, mapped to the researcher's
+  // claim tags. thesis.claims is ordered by ordinal (getThesisForUser), matching
+  // the positional claimIndices the researcher recorded.
+  const links = await listLinksForEvidenceIds(evidence.map((e) => e.id));
+  const linksByEvidenceId = new Map<string, typeof links>();
+  for (const l of links) {
+    const arr = linksByEvidenceId.get(l.evidenceId) ?? [];
+    arr.push(l);
+    linksByEvidenceId.set(l.evidenceId, arr);
+  }
+  const verdictsByEvidenceId = new Map<string, EvidenceVerdict[]>(
+    evidence.map((e) => [
+      e.id,
+      buildEvidenceVerdicts(e.claimIndices, thesis.claims, linksByEvidenceId.get(e.id) ?? []),
+    ]),
+  );
+
   // Evidence is attached to the LAST iteration (return_result) in v1; group there.
   const lastIterId = iterations.at(-1)?.id;
 
@@ -49,6 +69,7 @@ export default async function TracePage({
             active={!isTerminalStatus(run.status) && idx === iterations.length - 1}
             evidence={it.id === lastIterId ? evidence : []}
             sourcesById={sourcesById}
+            verdictsByEvidenceId={verdictsByEvidenceId}
           />
         ))}
         {iterations.length === 0 && <p className="text-sm text-zinc-400">Waiting for the agent to start…</p>}
