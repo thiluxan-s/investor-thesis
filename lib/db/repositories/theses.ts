@@ -117,3 +117,10 @@ export async function deleteThesis(
     .returning({ id: theses.id });
   return rows.length > 0 ? { ok: true } : { ok: false, reason: "not_found" };
 }
+
+export async function listActiveThesesByUser(userId: string): Promise<Thesis[]> {
+  return db
+    .select()
+    .from(theses)
+    .where(and(eq(theses.userId, userId), eq(theses.status, "active")));
+}

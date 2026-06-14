@@ -1,12 +1,33 @@
 import "server-only";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { agentRuns, theses, type AgentRun } from "@/lib/db/schema";
 import type { AgentRunStatus, AgentRunTrigger } from "@/schemas/agent";
 
-export async function createAgentRun(thesisId: string, trigger: AgentRunTrigger): Promise<AgentRun> {
-  const [row] = await db.insert(agentRuns).values({ thesisId, trigger, status: "queued" }).returning();
+export async function createAgentRun(
+  thesisId: string,
+  trigger: AgentRunTrigger,
+  digestBatchId?: string,
+): Promise<AgentRun> {
+  const [row] = await db
+    .insert(agentRuns)
+    .values({ thesisId, trigger, status: "queued", digestBatchId: digestBatchId ?? null })
+    .returning();
   return row;
+}
+
+// Most recent terminal-run completion time per thesis, for "Last analyzed".
+// Returns a Map of thesisId -> Date (only theses that have a completed run).
+export async function lastAnalyzedByThesisIds(thesisIds: string[]): Promise<Map<string, Date>> {
+  if (thesisIds.length === 0) return new Map();
+  const rows = await db
+    .select({ thesisId: agentRuns.thesisId, completedAt: sql<string>`max(${agentRuns.completedAt})` })
+    .from(agentRuns)
+    .where(inArray(agentRuns.thesisId, thesisIds))
+    .groupBy(agentRuns.thesisId);
+  const m = new Map<string, Date>();
+  for (const r of rows) if (r.completedAt) m.set(r.thesisId, new Date(r.completedAt));
+  return m;
 }
 
 export async function markRunning(runId: string): Promise<void> {
