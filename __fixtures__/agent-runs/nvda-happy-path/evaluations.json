@@ -1,0 +1,5 @@
+[
+  { "content": [{ "type": "tool_use", "id": "e1", "name": "return_evaluation", "input": { "impact": "strengthens", "confidence": 0.8, "reasoning": "Directly supports the growth claim." } }], "usage": { "input_tokens": 220, "output_tokens": 40 } },
+  { "content": [{ "type": "tool_use", "id": "e2", "name": "return_evaluation", "input": { "impact": "neutral", "confidence": 0.2, "reasoning": "Not clearly related to this claim." } }], "usage": { "input_tokens": 210, "output_tokens": 38 } },
+  { "content": [{ "type": "tool_use", "id": "e3", "name": "return_evaluation", "input": { "impact": "weakens", "confidence": 0.6, "reasoning": "Suggests headwinds against the claim." } }], "usage": { "input_tokens": 230, "output_tokens": 41 } }
+]
