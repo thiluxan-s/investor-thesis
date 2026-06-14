@@ -15,6 +15,12 @@ const serverEnvSchema = z.object({
   EDGAR_USER_AGENT: z.string().default("thesis-tracker/1.0"),
   // Set to "1" to replay fixtures instead of hitting real APIs.
   USE_AI_FIXTURES: z.boolean(),
+  // Email (digest). Optional so non-digest requests boot without them; the
+  // digest function guards its own usage.
+  RESEND_API_KEY: z.string().optional(),
+  RESEND_FROM_EMAIL: z.string().optional(),
+  SCHEDULED_RUNS_ENABLED: z.boolean(),
+  NEXT_PUBLIC_APP_URL: z.string().default("http://localhost:3000"),
 });
 
 export const serverEnv = serverEnvSchema.parse({
@@ -25,4 +31,8 @@ export const serverEnv = serverEnvSchema.parse({
   BRAVE_API_KEY: process.env.BRAVE_API_KEY,
   EDGAR_USER_AGENT: process.env.EDGAR_USER_AGENT,
   USE_AI_FIXTURES: process.env.USE_AI_FIXTURES === "1",
+  RESEND_API_KEY: process.env.RESEND_API_KEY,
+  RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL,
+  SCHEDULED_RUNS_ENABLED: process.env.SCHEDULED_RUNS_ENABLED === "1",
+  NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
 });
