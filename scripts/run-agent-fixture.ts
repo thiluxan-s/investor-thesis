@@ -25,6 +25,10 @@ import type { ToolContext, ToolResult } from "@/lib/ai/tools/types";
 import { FixtureReader, FIXTURE_ROOT } from "@/lib/ai/fixtures";
 import { hostnameOf, sha256 } from "@/lib/ai/url";
 import type { Anthropic } from "@anthropic-ai/sdk";
+import { listLinksForClaim } from "@/lib/db/repositories/claim-evidence-links";
+import { listSnapshotsForThesis } from "@/lib/db/repositories/health-snapshots";
+import { EvaluationFixtureReader } from "@/lib/ai/evaluation-fixtures";
+import { evaluateMatrix, recomputeAndPersist } from "@/lib/ai/evaluate-pipeline";
 
 async function main() {
   const scenario = process.argv[2] ?? "nvda-happy-path";
@@ -93,9 +97,26 @@ async function main() {
 
   const its = await listIterations(run.id);
   const ev = await listEvidenceForRun(run.id);
+
+  // --- Evaluation pipeline (offline, fixture-backed) ---
+  const evalReader = new EvaluationFixtureReader(scenario);
+  const evalClient: AnthropicLike = {
+    createMessage: async () => evalReader.next() as Anthropic.Message,
+  };
+  const pipelineClaims = cs.map((c) => ({ id: c.id, ordinal: c.ordinal, statement: c.statement, category: c.category }));
+  const pairs = await evaluateMatrix({
+    claims: pipelineClaims,
+    evidence: ev.map((e) => ({ id: e.id, extractedText: e.extractedText })),
+    client: evalClient,
+  });
+  const { overallScore } = await recomputeAndPersist({ thesisId: thesis.id, agentRunId: run.id, claims: pipelineClaims });
+  const linkCounts = await Promise.all(pipelineClaims.map((c) => listLinksForClaim(c.id).then((l) => l.length)));
+  const snapshots = await listSnapshotsForThesis(thesis.id);
+
   console.log(
     JSON.stringify(
-      { scenario, runId: run.id, status: result.status, iterations: its.length, evidence: ev.length },
+      { scenario, runId: run.id, status: result.status, iterations: its.length, evidence: ev.length,
+        pairsEvaluated: pairs, linksPerClaim: linkCounts, overallScore, snapshots: snapshots.length },
       null,
       2,
     ),
