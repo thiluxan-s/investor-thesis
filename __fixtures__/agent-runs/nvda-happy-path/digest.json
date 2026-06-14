@@ -1,0 +1,1 @@
+{ "content": [{ "type": "tool_use", "id": "d1", "name": "return_digest", "input": { "theses": [{ "thesisId": "REPLACED_AT_RUNTIME", "blurb": "New reporting shows data-center revenue up 40% YoY, directly supporting the growth claim; overall health held positive despite a cautious note on competition." }] } }], "usage": { "input_tokens": 300, "output_tokens": 60 } }
