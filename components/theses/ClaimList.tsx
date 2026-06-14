@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ClaimForm } from "@/components/theses/ClaimForm";
 import { CategoryBadge } from "@/components/theses/CategoryBadge";
+import { HealthBar } from "@/components/agent/HealthBar";
 import type { Claim } from "@/lib/db/schema";
 import type { ClaimCategory, ClaimInput } from "@/schemas/thesis";
 import { MAX_CLAIMS } from "@/lib/theses/claim-invariants";
@@ -43,9 +44,16 @@ export function ClaimList({ thesisId, claims }: { thesisId: string; claims: Clai
           </div>
         ) : (
           <div key={c.id} className="border-b border-zinc-100 py-3.5">
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-[11px] font-semibold text-zinc-400">{idx + 1}</span>
-              <CategoryBadge category={c.category as ClaimCategory} />
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[11px] font-semibold text-zinc-400">{idx + 1}</span>
+                <CategoryBadge category={c.category as ClaimCategory} />
+              </div>
+              <HealthBar
+                score={Number(c.currentHealthScore)}
+                analyzed={c.currentHealthUpdatedAt !== null}
+                trackClassName="w-20"
+              />
             </div>
             <p className="mt-1.5 text-sm leading-relaxed text-zinc-800">{c.statement}</p>
             <div className="mt-1.5 flex gap-3.5 text-xs text-zinc-400">

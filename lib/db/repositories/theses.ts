@@ -4,7 +4,13 @@ import { db } from "@/lib/db";
 import { theses, claims, type Thesis, type Claim } from "@/lib/db/schema";
 import type { CreateThesisInput, UpdateThesisInput } from "@/schemas/thesis";
 
-export type ThesisListItem = Thesis & { claimCount: number };
+export type ThesisListItem = Thesis & {
+  claimCount: number;
+  // Mean of the claims' current_health_score in [-1, 1]; 0 when unanalyzed.
+  avgHealth: number;
+  // Most recent claim health update across the thesis; null = never analyzed.
+  healthUpdatedAt: Date | null;
+};
 export type ThesisWithClaims = Thesis & { claims: Claim[] };
 export type ThesisMutationResult = { ok: true } | { ok: false; reason: "not_found" };
 
@@ -45,13 +51,23 @@ export async function createThesisWithClaims(
 
 export async function listThesesByUser(userId: string): Promise<ThesisListItem[]> {
   const rows = await db
-    .select({ thesis: theses, claimCount: sql<number>`count(${claims.id})::int` })
+    .select({
+      thesis: theses,
+      claimCount: sql<number>`count(${claims.id})::int`,
+      avgHealth: sql<number>`coalesce(avg(${claims.currentHealthScore}), 0)::float`,
+      healthUpdatedAt: sql<string | null>`max(${claims.currentHealthUpdatedAt})`,
+    })
     .from(theses)
     .leftJoin(claims, eq(claims.thesisId, theses.id))
     .where(eq(theses.userId, userId))
     .groupBy(theses.id)
     .orderBy(desc(theses.updatedAt));
-  return rows.map((r) => ({ ...r.thesis, claimCount: Number(r.claimCount) }));
+  return rows.map((r) => ({
+    ...r.thesis,
+    claimCount: Number(r.claimCount),
+    avgHealth: Number(r.avgHealth),
+    healthUpdatedAt: r.healthUpdatedAt ? new Date(r.healthUpdatedAt) : null,
+  }));
 }
 
 export async function getThesisForUser(

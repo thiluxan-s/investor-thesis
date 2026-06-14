@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HealthBar } from "@/components/agent/HealthBar";
 import type { ThesisListItem } from "@/lib/db/repositories/theses";
 import { DIRECTION_LABELS, HORIZON_LABELS, STATUS_LABELS } from "@/lib/theses/labels";
 
@@ -28,10 +29,11 @@ export function ThesisRow({ thesis }: { thesis: ThesisListItem }) {
           {HORIZON_LABELS[thesis.timeHorizon]}
         </p>
       </div>
-      <div className="flex items-center gap-2 text-xs text-zinc-400">
-        <span className="h-1.5 w-20 rounded-full border border-dashed border-zinc-300" />
-        Not analyzed yet
-      </div>
+      <HealthBar
+        score={thesis.avgHealth}
+        analyzed={thesis.healthUpdatedAt !== null}
+        trackClassName="w-20"
+      />
       <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${statusClass}`}>
         {STATUS_LABELS[thesis.status]}
       </span>

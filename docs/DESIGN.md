@@ -132,12 +132,27 @@ These are the calls we made when the design comes under tension. When in doubt, 
 
 > Phase 6 adds the "Start from a paragraph" tab here. Decisions on the tabbed interface, drafter-running state, and drafted-claim review go here when Phase 6 ships.
 
+### Thesis health surfaces (Phase 4b)
+
+**Goal:** Read a claim's or thesis's standing at a glance, honestly — strong/weak without "alert," and never a fabricated score for something the agent hasn't evaluated.
+
+**HealthBar (`components/agent/HealthBar.tsx`):** a centered **−1..1** track (center tick, zinc-100 rail) whose fill grows right for positive scores, left for negative, colored by tone. Tone is decided by a **±0.15 neutral deadband** (`HEALTH_DEADBAND`) so a barely-positive score reads neutral zinc rather than glowing green — `bg-health-strong` / `bg-health-neutral` / `bg-health-weak`. The trailing value is **signed, two-decimal, Geist Mono** (`formatHealthScore`, true U+2212 minus), tinted to match the tone. When a claim/thesis has never been analyzed (gated on a real `healthUpdatedAt` / `currentHealthUpdatedAt` timestamp, never on a score of 0) it shows a **dashed "Not analyzed"** track instead — the honest empty state carried over from the Phase 2 placeholder. Track width is per-surface (`w-20` dense list rows, `w-28` detail summary).
+
+**Trace verdict tags (`components/agent/trace/EvidenceCard.tsx`):** each evaluator verdict on an evidence card is a compact `claim N` row — **impact dot + label** (`strengthens` green / `neutral` zinc / `weakens` brick, via the same health tokens) and a **bare two-decimal confidence** in Geist Mono. Confidence is a 0..1 magnitude, so it is rendered unsigned (`toFixed(2)`), deliberately *not* with the signed `formatHealthScore` used for health scores. Reasoning is tucked into a native `<details>` (keeps the card a server component, no JS) and revealed by a **chevron that rotates on `group-open`** — shown only when reasoning exists.
+
+**HealthChart (`components/theses/HealthChart.tsx`):** an overall-health trend line (Recharts, `"use client"`) in the **accent blue `#1E3A5F`**, on a fixed **−1..1 domain** with a **zero reference line** so up/down reads against a stable baseline. Axis ticks are quiet zinc; the tooltip formats to two decimals. With **fewer than 2 snapshots** it shows a dashed placeholder ("Run analysis over time to see the trend") rather than a misleading single point. Recharts SVG props take raw hex (no Tailwind classes) — the values mirror the accent and zinc tokens.
+
 ---
 
 ## Decisions log
 
 Newest first. Capture meaningful choices with one-sentence rationale.
 
+- **2026-06-14 — HealthBar = centered −1..1 fill with a ±0.15 neutral deadband.** Fill grows out from center colored by tone, signed two-decimal mono value alongside; barely-positive scores read neutral, not green.
+- **2026-06-14 — Unanalyzed health shows a dashed "Not analyzed", never `0.00`.** Gated on a real `healthUpdatedAt` timestamp, not a score — honest about what the agent hasn't touched.
+- **2026-06-14 — Trace confidence rendered as a bare two-decimal magnitude**, not the signed `formatHealthScore` — confidence is a 0..1 magnitude, so a leading `+` would mislead.
+- **2026-06-14 — Trace verdict reasoning expands via native `<details>` + a `group-open` rotating chevron** — keeps the evidence card a server component (no client JS) while staying inspectable.
+- **2026-06-14 — HealthChart = accent-blue line on a fixed −1..1 domain with a zero reference line**, dashed placeholder under 2 snapshots — a stable baseline and no misleading single point.
 - **2026-06-13 — Trace view = immersive single-column timeline** (numbered spine, reasoning → collapsible tool calls → inline evidence) at a full-width sub-route. Reads as "watch the agent think," the memorable wow vs a dashboard.
 - **2026-06-13 — Live updates = polled incremental reveal, not token-streaming.** `router.refresh()` every ~3s; new cards spring/fade in via Motion; active node pulses. Honest to ARCHITECTURE's no-SSE-in-v1 call.
 - **2026-06-13 — Tool errors render calm, not alarming** — brick `refused` chip + tint for allow-list blocks, never a red alert.

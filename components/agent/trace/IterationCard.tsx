@@ -1,6 +1,7 @@
 "use client";
 import { motion } from "motion/react";
 import type { AgentRunIteration, Evidence, Source } from "@/lib/db/schema";
+import type { EvidenceVerdict } from "@/lib/agent/evidence-verdicts";
 import { extractThinking, readToolCalls } from "@/lib/agent/trace";
 import { ToolCallBlock } from "./ToolCallBlock";
 import { EvidenceCard } from "./EvidenceCard";
@@ -11,12 +12,14 @@ export function IterationCard({
   index,
   evidence,
   sourcesById,
+  verdictsByEvidenceId,
 }: {
   iteration: AgentRunIteration;
   active: boolean;
   index: number;
   evidence: Evidence[];
   sourcesById: Map<string, Source>;
+  verdictsByEvidenceId: Map<string, EvidenceVerdict[]>;
 }) {
   const thinking = extractThinking(iteration.responseContent);
   const calls = readToolCalls(iteration.toolCalls);
@@ -54,7 +57,12 @@ export function IterationCard({
         <ToolCallBlock key={i} call={c} />
       ))}
       {evidence.map((ev) => (
-        <EvidenceCard key={ev.id} ev={ev} domain={sourcesById.get(ev.sourceId)?.domain ?? "source"} />
+        <EvidenceCard
+          key={ev.id}
+          ev={ev}
+          domain={sourcesById.get(ev.sourceId)?.domain ?? "source"}
+          verdicts={verdictsByEvidenceId.get(ev.id) ?? []}
+        />
       ))}
     </motion.div>
   );
