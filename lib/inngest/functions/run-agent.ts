@@ -98,6 +98,15 @@ export const runAgent = inngest.createFunction(
       result.status === "failed" ? "failed" : result.status === "partial" ? "partial" : "complete",
       { error: result.reason },
     );
+
+    // Kick off evaluation only when the run actually produced evidence.
+    if (result.status !== "failed" && result.evidenceCount > 0) {
+      await step.sendEvent("emit-agent-run-completed", {
+        name: "agent-run.completed",
+        data: { agentRunId, thesisId, userId, scenario },
+      });
+    }
+
     return { status: result.status };
   },
 );
