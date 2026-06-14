@@ -104,6 +104,9 @@ export const agentRunStatus = pgEnum("agent_run_status", [
 ]);
 export const agentRunTrigger = pgEnum("agent_run_trigger", ["manual", "scheduled"]);
 
+// Enum values mirror schemas/evidence.ts — keep in sync.
+export const evidenceImpact = pgEnum("evidence_impact", ["strengthens", "neutral", "weakens"]);
+
 export const sources = pgTable(
   "sources",
   {
