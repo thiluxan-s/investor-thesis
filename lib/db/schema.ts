@@ -7,6 +7,8 @@ import {
   jsonb,
   numeric,
   timestamp,
+  boolean,
+  date,
   index,
   uniqueIndex,
   vector,
@@ -16,6 +18,7 @@ export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   clerkUserId: text("clerk_user_id").notNull().unique(),
   email: text("email").notNull(),
+  digestEnabled: boolean("digest_enabled").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -104,6 +107,7 @@ export const agentRunStatus = pgEnum("agent_run_status", [
   "failed",
 ]);
 export const agentRunTrigger = pgEnum("agent_run_trigger", ["manual", "scheduled"]);
+export const digestBatchStatus = pgEnum("digest_batch_status", ["pending", "sending", "sent", "skipped"]);
 
 // Enum values mirror schemas/evidence.ts — keep in sync.
 export const evidenceImpact = pgEnum("evidence_impact", ["strengthens", "neutral", "weakens"]);
@@ -133,6 +137,7 @@ export const agentRuns = pgTable(
       .references(() => theses.id, { onDelete: "cascade" }),
     status: agentRunStatus("status").notNull().default("queued"),
     trigger: agentRunTrigger("trigger").notNull(),
+    digestBatchId: uuid("digest_batch_id").references(() => digestBatches.id, { onDelete: "set null" }),
     startedAt: timestamp("started_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     iterationsUsed: integer("iterations_used").notNull().default(0),
@@ -147,6 +152,22 @@ export const agentRuns = pgTable(
       .$onUpdate(() => new Date()),
   },
   (t) => [index("agent_runs_thesis_id_idx").on(t.thesisId)],
+);
+
+export const digestBatches = pgTable(
+  "digest_batches",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    weekOf: date("week_of").notNull(),
+    expectedRuns: integer("expected_runs").notNull(),
+    completedRuns: integer("completed_runs").notNull().default(0),
+    status: digestBatchStatus("status").notNull().default("pending"),
+    digestSentAt: timestamp("digest_sent_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  },
+  (t) => [uniqueIndex("digest_batches_user_week_idx").on(t.userId, t.weekOf)],
 );
 
 export const agentRunIterations = pgTable(
@@ -241,6 +262,8 @@ export const thesisHealthSnapshots = pgTable(
 
 export type Source = typeof sources.$inferSelect;
 export type AgentRun = typeof agentRuns.$inferSelect;
+export type DigestBatch = typeof digestBatches.$inferSelect;
+export type NewDigestBatch = typeof digestBatches.$inferInsert;
 export type AgentRunIteration = typeof agentRunIterations.$inferSelect;
 export type Evidence = typeof evidence.$inferSelect;
 export type ClaimEvidenceLink = typeof claimEvidenceLinks.$inferSelect;
