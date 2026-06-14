@@ -8,6 +8,7 @@ import {
   numeric,
   timestamp,
   index,
+  uniqueIndex,
   vector,
 } from "drizzle-orm/pg-core";
 
@@ -187,7 +188,62 @@ export const evidence = pgTable(
   (t) => [index("evidence_agent_run_id_idx").on(t.agentRunId), index("evidence_source_id_idx").on(t.sourceId)],
 );
 
+export const claimEvidenceLinks = pgTable(
+  "claim_evidence_links",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    claimId: uuid("claim_id")
+      .notNull()
+      .references(() => claims.id, { onDelete: "cascade" }),
+    evidenceId: uuid("evidence_id")
+      .notNull()
+      .references(() => evidence.id, { onDelete: "cascade" }),
+    impact: evidenceImpact("impact").notNull(),
+    confidence: numeric("confidence", { precision: 3, scale: 2 }).notNull(),
+    reasoning: text("reasoning").notNull(),
+    evaluatorPromptVersion: text("evaluator_prompt_version").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [
+    uniqueIndex("claim_evidence_links_pair_idx").on(t.claimId, t.evidenceId),
+    index("claim_evidence_links_claim_id_idx").on(t.claimId),
+  ],
+);
+
+export const thesisHealthSnapshots = pgTable(
+  "thesis_health_snapshots",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    thesisId: uuid("thesis_id")
+      .notNull()
+      .references(() => theses.id, { onDelete: "cascade" }),
+    agentRunId: uuid("agent_run_id")
+      .notNull()
+      .references(() => agentRuns.id, { onDelete: "cascade" }),
+    recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull().defaultNow(),
+    overallScore: numeric("overall_score", { precision: 3, scale: 2 }).notNull(),
+    claimScores: jsonb("claim_scores").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [
+    uniqueIndex("thesis_health_snapshots_run_idx").on(t.agentRunId),
+    index("thesis_health_snapshots_thesis_recorded_idx").on(t.thesisId, t.recordedAt),
+  ],
+);
+
 export type Source = typeof sources.$inferSelect;
 export type AgentRun = typeof agentRuns.$inferSelect;
 export type AgentRunIteration = typeof agentRunIterations.$inferSelect;
 export type Evidence = typeof evidence.$inferSelect;
+export type ClaimEvidenceLink = typeof claimEvidenceLinks.$inferSelect;
+export type NewClaimEvidenceLink = typeof claimEvidenceLinks.$inferInsert;
+export type ThesisHealthSnapshot = typeof thesisHealthSnapshots.$inferSelect;
+export type NewThesisHealthSnapshot = typeof thesisHealthSnapshots.$inferInsert;
