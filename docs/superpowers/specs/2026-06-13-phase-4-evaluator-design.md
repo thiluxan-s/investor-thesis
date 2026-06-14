@@ -161,10 +161,10 @@ All DB access stays behind repositories.
 
 Follows the established design language (zinc neutrals, deep-blue `#1E3A5F` accent, green `#1F7A4D` / red `#C0492F` for positive/negative). Engage the frontend-design skill on each surface; run a design pass after.
 
-- **`HealthBar`** (reusable) — a −1..1 indicator, color-coded (green positive, red negative, zinc near-neutral) with the numeric value. Used on claim cards and thesis cards.
-- **`ClaimList`** — a health bar per claim from `currentHealthScore`.
-- **Thesis list view** (`theses/page.tsx`) — a thesis-level health badge per card from the aggregated average.
-- **Trace `EvidenceCard`** — upgrade the existing zero-based-safe "claim N" tags to show the evaluator's verdict per linked claim: impact (color-coded), confidence, and expandable reasoning. The trace page (`runs/[runId]/page.tsx`) loads links for the run's evidence via `listLinksForEvidenceIds` and passes them down.
+- **`HealthBar`** (reusable) — a −1..1 indicator, color-coded (green positive, red negative, zinc near-neutral) with the numeric value. Used on claim cards and thesis cards. **Unanalyzed state:** when a claim/thesis has not been analyzed yet (`current_health_updated_at IS NULL` / no snapshot), the bar renders the dashed "Not analyzed" track instead of a fabricated `0.00` — matching `DESIGN.md` and the existing list-row placeholder. The component takes an explicit `analyzed`/`updatedAt`-derived flag, never inferring "unanalyzed" from a `0` score (0 is a legitimate neutral result post-analysis).
+- **`ClaimList`** — a health bar per claim from `currentHealthScore`, gated on `currentHealthUpdatedAt` for the analyzed/unanalyzed distinction.
+- **Thesis list view** (`theses/page.tsx`) — a thesis-level health badge per card. `listThesesByUser` is extended to return both `avg(claims.current_health_score)` **and** an analyzed signal (`max(claims.current_health_updated_at)`); the row shows a real bar only when analyzed, else keeps "Not analyzed yet".
+- **Trace `EvidenceCard`** — upgrade the existing zero-based-safe "claim N" tags to show the evaluator's verdict per tagged claim: impact (color-coded), confidence, and expandable reasoning. The researcher's `claimIndices` are **ordinals**, while links are keyed by `claimId`; the trace page maps ordinal → claim → link using the run's thesis claims (ordered by `ordinal`). The page (`runs/[runId]/page.tsx`) loads links for the run's evidence via `listLinksForEvidenceIds` and passes them down.
 - **`HealthChart`** (`"use client"`, Recharts — pre-approved in CLAUDE.md) on the thesis detail page — an overall-score line over `recordedAt` from `listSnapshotsForThesis`. Per-claim lines (from the JSONB) are a stretch within 4b. Empty state: when fewer than 2 snapshots, show a "Run analysis over time to see the trend" placeholder rather than a one-point chart.
 
 ---
@@ -174,7 +174,7 @@ Follows the established design language (zinc neutrals, deep-blue `#1E3A5F` acce
 - **Evaluator API error:** let the Inngest step retry (no manual retry loop inside the step).
 - **Malformed / Zod-invalid evaluator output** after retries: record a **neutral, confidence-0** link whose `reasoning` notes the failure. This keeps the matrix complete, contributes 0 to health, and avoids an infinite retry. (v1 does not add a separate "failed" flag — neutral/0 is self-documenting; a later prompt-version re-run overwrites it.)
 - **No new Server Actions** — evaluation is entirely background. Detail/list pages read via Server Components.
-- **Empty states:** claims with no links show a neutral (0) bar; theses with no snapshots show the chart placeholder; the matrix step is a no-op when a run collected no evidence.
+- **Empty states:** unanalyzed claims/theses (`current_health_updated_at IS NULL` / no snapshot) show the dashed "Not analyzed" state, **never** a fabricated `0.00` bar (per `DESIGN.md`); a `0.00` bar is shown only as a genuine post-analysis neutral result. Theses with fewer than 2 snapshots show the chart placeholder; the matrix step is a no-op when a run collected no evidence.
 
 ---
 
