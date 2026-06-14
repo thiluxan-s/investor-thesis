@@ -11,6 +11,10 @@ import { NotesEditor } from "@/components/theses/NotesEditor";
 import { DeleteThesisButton } from "@/components/theses/DeleteThesisButton";
 import { AnalyzeNowButton } from "@/components/agent/AnalyzeNowButton";
 import { AgentRunPanel } from "@/components/agent/AgentRunPanel";
+import { listSnapshotsForThesis } from "@/lib/db/repositories/health-snapshots";
+import { HealthChart } from "@/components/theses/HealthChart";
+import { HealthBar } from "@/components/agent/HealthBar";
+import { thesisHealth } from "@/lib/health/score";
 
 export default async function ThesisDetailPage({
   params,
@@ -24,6 +28,16 @@ export default async function ThesisDetailPage({
 
   const runs = await listAgentRunsForThesis(userId, thesis.id);
   const activeRun = runs.find((r) => !isTerminalStatus(r.status));
+
+  const snapshots = await listSnapshotsForThesis(thesis.id);
+  const chartPoints = snapshots
+    .map((s) => ({ recordedAt: s.recordedAt.toISOString(), score: Number(s.overallScore) }))
+    .reverse(); // listSnapshotsForThesis is newest-first; chart wants oldest→newest
+
+  // Thesis-level current health: mean of the claims' scores, shown only once any
+  // claim has been analyzed (matches the unanalyzed placeholder convention).
+  const analyzed = thesis.claims.some((c) => c.currentHealthUpdatedAt !== null);
+  const thesisScore = thesisHealth(thesis.claims.map((c) => Number(c.currentHealthScore)));
 
   const dirClass = thesis.positionDirection === "long" ? "text-[#1F7A4D]" : "text-[#C0492F]";
 
@@ -50,7 +64,17 @@ export default async function ThesisDetailPage({
       </div>
 
       <div className="mt-8 grid grid-cols-[1fr_280px] gap-8">
-        <ClaimList thesisId={thesis.id} claims={thesis.claims} />
+        <div>
+          <ClaimList thesisId={thesis.id} claims={thesis.claims} />
+
+          <div className="mt-10 border-t border-zinc-100 pt-6">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Thesis health</p>
+              <HealthBar score={thesisScore} analyzed={analyzed} trackClassName="w-28" />
+            </div>
+            <HealthChart points={chartPoints} />
+          </div>
+        </div>
 
         <div className="space-y-6">
           <div className="rounded-xl border border-zinc-200 p-4 text-sm">
