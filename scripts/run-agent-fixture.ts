@@ -29,6 +29,10 @@ import { listLinksForClaim } from "@/lib/db/repositories/claim-evidence-links";
 import { listSnapshotsForThesis } from "@/lib/db/repositories/health-snapshots";
 import { EvaluationFixtureReader } from "@/lib/ai/evaluation-fixtures";
 import { evaluateMatrix, recomputeAndPersist } from "@/lib/ai/evaluate-pipeline";
+import { selectChangedTheses } from "@/lib/digest/select";
+import { summarize } from "@/lib/ai/agents/summarizer";
+import { DigestFixtureReader } from "@/lib/ai/digest-fixtures";
+import { getSourcesByIds } from "@/lib/db/repositories/sources";
 
 async function main() {
   const scenario = process.argv[2] ?? "nvda-happy-path";
@@ -113,10 +117,24 @@ async function main() {
   const linkCounts = await Promise.all(pipelineClaims.map((c) => listLinksForClaim(c.id).then((l) => l.length)));
   const snapshots = await listSnapshotsForThesis(thesis.id);
 
+  // --- Digest pipeline (offline, fixture-backed) ---
+  const srcRows = await getSourcesByIds([...new Set(ev.map((e) => e.sourceId))]);
+  const domainById = new Map(srcRows.map((s) => [s.id, s.domain]));
+  const changed = selectChangedTheses({
+    theses: [{ id: thesis.id, title: thesis.title, ticker: thesis.ticker, positionDirection: thesis.positionDirection }],
+    evidenceByThesis: new Map([
+      [thesis.id, ev.map((e) => ({ sourceDomain: domainById.get(e.sourceId) ?? "source", extractedText: e.extractedText }))],
+    ]),
+    snapshotsByThesis: new Map([[thesis.id, snapshots.map((s) => ({ overallScore: Number(s.overallScore) }))]]),
+  });
+  const digestClient: AnthropicLike = { createMessage: async () => new DigestFixtureReader(scenario).next() as Anthropic.Message };
+  const digest = changed.length ? await summarize(changed, { client: digestClient }) : { theses: [] };
+
   console.log(
     JSON.stringify(
       { scenario, runId: run.id, status: result.status, iterations: its.length, evidence: ev.length,
-        pairsEvaluated: pairs, linksPerClaim: linkCounts, overallScore, snapshots: snapshots.length },
+        pairsEvaluated: pairs, linksPerClaim: linkCounts, overallScore, snapshots: snapshots.length,
+        digestThesesChanged: changed.length, digestBlurbs: digest.theses.length },
       null,
       2,
     ),
