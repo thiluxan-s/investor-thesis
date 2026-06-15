@@ -142,12 +142,28 @@ These are the calls we made when the design comes under tension. When in doubt, 
 
 **HealthChart (`components/theses/HealthChart.tsx`):** an overall-health trend line (Recharts, `"use client"`) in the **accent blue `#1E3A5F`**, on a fixed **−1..1 domain** with a **zero reference line** so up/down reads against a stable baseline. Axis ticks are quiet zinc; the tooltip formats to two decimals. With **fewer than 2 snapshots** it shows a dashed placeholder ("Run analysis over time to see the trend") rather than a misleading single point. Recharts SVG props take raw hex (no Tailwind classes) — the values mirror the accent and zinc tokens.
 
+### Settings & last-analyzed (Phase 5b)
+
+**Goal:** Give the digest and ad-hoc-run controls a quiet, sectioned home, and surface when each thesis was last touched without competing with health.
+
+**`/settings` layout:** a single narrow column (`max-w-2xl`) — settings is a sparse form surface, not a data surface, so generosity over density applies. Two sections (**Notifications**, **Analysis**), each headed by the shared section label (`text-[11px] font-semibold uppercase tracking-wider text-zinc-400`, matching the detail-page rail). Each setting is a **label+description / control row**: the title (`text-sm font-medium text-zinc-800`) and a `text-xs text-zinc-500` description sit left, the control right-aligned, separated from the heading by a single `border-zinc-100` hairline. Flat over carded — no `<Card>` chrome, whitespace and one hairline do the grouping.
+
+**Header gear (`app/(app)/layout.tsx`):** a Lucide `Settings` icon link to `/settings` sized to the wordmark mark (`size-[18px]`), grouped in the same right-hand cluster as the Clerk `UserButton` (`gap-4`). Quiet zinc-400 → zinc-700 hover, so it reads as utility chrome, not a primary nav item.
+
+**DigestToggle (`components/settings/DigestToggle.tsx`):** a real `role="switch"` (not a checkbox) — track `bg-primary` (accent) when on / `bg-zinc-200` off, white knob that slides. Toggling is **optimistic** (state flips immediately, transition pending) and **reverts with an error toast** if the server action fails — the control never sits in a fake-success state.
+
+**Last analyzed (`lib/format/relative-time.ts`):** a coarse relative label ("just now", `Nm/Nh/Nd/Nw ago`) appended to the existing zinc meta line on list rows (`ThesisRow`) and the detail header — "· Analyzed Nd ago", or **"Not analyzed"** when no run has completed. Coarse buckets on purpose (this isn't a precise timestamp surface), and the never-run wording stays consistent with the Phase 4b health "Not analyzed" placeholder rather than inventing a second empty phrasing.
+
 ---
 
 ## Decisions log
 
 Newest first. Capture meaningful choices with one-sentence rationale.
 
+- **2026-06-15 — `/settings` = single narrow column, sectioned label+description rows.** Flat over carded; section labels reuse the rail's uppercase-tracked zinc-400 style, one hairline per heading, controls right-aligned.
+- **2026-06-15 — Settings reached via a quiet header gear** grouped with the Clerk user button — utility chrome, not primary nav.
+- **2026-06-15 — DigestToggle = real `role="switch"`, accent track when on, optimistic + revert-on-error.** Never shows a fake-success state if the server action fails.
+- **2026-06-15 — "Last analyzed" = coarse relative label on list rows + detail header**, "Not analyzed" for never-run — reuses the Phase 4b health empty-state wording rather than a second phrasing.
 - **2026-06-14 — HealthBar = centered −1..1 fill with a ±0.15 neutral deadband.** Fill grows out from center colored by tone, signed two-decimal mono value alongside; barely-positive scores read neutral, not green.
 - **2026-06-14 — Unanalyzed health shows a dashed "Not analyzed", never `0.00`.** Gated on a real `healthUpdatedAt` timestamp, not a score — honest about what the agent hasn't touched.
 - **2026-06-14 — Trace confidence rendered as a bare two-decimal magnitude**, not the signed `formatHealthScore` — confidence is a 0..1 magnitude, so a leading `+` would mislead.
