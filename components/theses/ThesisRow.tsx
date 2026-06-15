@@ -2,8 +2,9 @@ import Link from "next/link";
 import { HealthBar } from "@/components/agent/HealthBar";
 import type { ThesisListItem } from "@/lib/db/repositories/theses";
 import { DIRECTION_LABELS, HORIZON_LABELS, STATUS_LABELS } from "@/lib/theses/labels";
+import { formatRelativeTime } from "@/lib/format/relative-time";
 
-export function ThesisRow({ thesis }: { thesis: ThesisListItem }) {
+export function ThesisRow({ thesis, lastAnalyzed }: { thesis: ThesisListItem; lastAnalyzed: Date | null }) {
   const dirClass = thesis.positionDirection === "long" ? "text-[#1F7A4D]" : "text-[#C0492F]";
   const statusClass =
     thesis.status === "active"
@@ -26,7 +27,8 @@ export function ThesisRow({ thesis }: { thesis: ThesisListItem }) {
         </div>
         <p className="mt-0.5 text-xs text-zinc-400">
           {thesis.claimCount} {thesis.claimCount === 1 ? "claim" : "claims"} ·{" "}
-          {HORIZON_LABELS[thesis.timeHorizon]}
+          {HORIZON_LABELS[thesis.timeHorizon]} ·{" "}
+          {lastAnalyzed ? `Analyzed ${formatRelativeTime(lastAnalyzed)}` : "Not analyzed"}
         </p>
       </div>
       <HealthBar

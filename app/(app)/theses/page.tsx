@@ -2,11 +2,13 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { requireUserId } from "@/lib/auth/require-user";
 import { listThesesByUser } from "@/lib/db/repositories/theses";
+import { lastAnalyzedByThesisIds } from "@/lib/db/repositories/agent-runs";
 import { ThesisRow } from "@/components/theses/ThesisRow";
 
 export default async function ThesesPage() {
   const userId = await requireUserId();
   const theses = await listThesesByUser(userId);
+  const lastAnalyzed = await lastAnalyzedByThesisIds(theses.map((t) => t.id));
 
   return (
     <div>
@@ -40,7 +42,7 @@ export default async function ThesesPage() {
       ) : (
         <div className="mt-8 border-t border-zinc-200">
           {theses.map((t) => (
-            <ThesisRow key={t.id} thesis={t} />
+            <ThesisRow key={t.id} thesis={t} lastAnalyzed={lastAnalyzed.get(t.id) ?? null} />
           ))}
         </div>
       )}
