@@ -60,3 +60,14 @@ export type ClaimCategory = z.infer<typeof ClaimCategorySchema>;
 export type PositionDirection = (typeof POSITION_DIRECTIONS)[number];
 export type TimeHorizon = (typeof TIME_HORIZONS)[number];
 export type ThesisStatus = (typeof THESIS_STATUSES)[number];
+
+export const DraftRequestSchema = z.object({
+  ticker: TickerSchema,
+  positionDirection: z.enum(POSITION_DIRECTIONS),
+  reasoning: z
+    .string()
+    .trim()
+    .min(30, "Add a bit more detail — at least 30 characters")
+    .max(2000, "Keep your reasoning under 2000 characters"),
+});
+export type DraftRequestInput = z.infer<typeof DraftRequestSchema>;
