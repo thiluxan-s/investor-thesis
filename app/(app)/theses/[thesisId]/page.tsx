@@ -5,6 +5,7 @@ import { getThesisForUser } from "@/lib/db/repositories/theses";
 import { listAgentRunsForThesis } from "@/lib/db/repositories/agent-runs";
 import { isTerminalStatus } from "@/lib/agent/run-status";
 import { DIRECTION_LABELS, HORIZON_LABELS } from "@/lib/theses/labels";
+import { formatRelativeTime } from "@/lib/format/relative-time";
 import { ClaimList } from "@/components/theses/ClaimList";
 import { StatusSelect } from "@/components/theses/StatusSelect";
 import { NotesEditor } from "@/components/theses/NotesEditor";
@@ -28,6 +29,14 @@ export default async function ThesisDetailPage({
 
   const runs = await listAgentRunsForThesis(userId, thesis.id);
   const activeRun = runs.find((r) => !isTerminalStatus(r.status));
+
+  // Most recent completed run, regardless of the list's ordering.
+  const lastAnalyzed = runs
+    .filter((r) => isTerminalStatus(r.status) && r.completedAt)
+    .reduce<Date | null>((acc, r) => {
+      const c = r.completedAt as Date;
+      return !acc || c > acc ? c : acc;
+    }, null);
 
   const snapshots = await listSnapshotsForThesis(thesis.id);
   const chartPoints = snapshots
@@ -58,6 +67,9 @@ export default async function ThesisDetailPage({
               {DIRECTION_LABELS[thesis.positionDirection]}
             </span>
             <span className="text-xs text-zinc-400">· {HORIZON_LABELS[thesis.timeHorizon]}</span>
+            <span className="text-xs text-zinc-400">
+              · {lastAnalyzed ? `Analyzed ${formatRelativeTime(lastAnalyzed)}` : "Not analyzed"}
+            </span>
           </div>
         </div>
         <AnalyzeNowButton thesisId={thesis.id} disabled={Boolean(activeRun)} />
