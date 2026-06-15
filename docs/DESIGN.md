@@ -130,7 +130,9 @@ These are the calls we made when the design comes under tension. When in doubt, 
 
 **Manual flow (Phase 2):** A dedicated **`/theses/new` route** (not a modal) chosen so it scales to the Phase 6 paragraph tab + drafter-running state. Two steps: **(1) Position** — title, ticker (`font-mono`, auto-uppercased, 1–6 letters), Long/Short segmented toggle, time-horizon select, status select (Active default; Paused for "still planning"); **(2) Claims** — a live "N of 2–5" counter, added claims shown compact, and the **same `ClaimForm`** used on the detail page for adding the next. "Create" stays disabled until ≥2 valid claims. Notes are intentionally absent from the wizard (editable on detail) to avoid a wall of fields.
 
-> Phase 6 adds the "Start from a paragraph" tab here. Decisions on the tabbed interface, drafter-running state, and drafted-claim review go here when Phase 6 ships.
+**Paragraph drafting (Phase 6a):** The claims step (step 2) gains a **segmented "Write manually" / "Start from a paragraph" control** that mirrors the step-1 Long/Short direction toggle — same `inline-flex overflow-hidden rounded-lg border border-zinc-200`, same `bg-primary text-primary-foreground` active state / `text-zinc-500` inactive (padding dialed tighter, `px-3.5 py-1.5`, for the longer labels in a denser context). The two modes feed the **same shared `claims` list** so they read as one flow, not a bolted-on tab. At the 5-claim cap both modes collapse to the existing "Maximum of 5 claims" note.
+
+Paragraph mode renders **`ParagraphDrafter`** — a **review-and-add** pattern, not a blind merge: a textarea (2000-char cap, live counter) with a "Draft claims" CTA **gated until 30 characters**; on submit the drafter agent returns candidate claims that **animate in** (Motion, index-staggered fade/rise) as flat `zinc-100` cards. Each card keeps the same badge → statement → muted excerpt hierarchy as a real claim card, plus a **muted italic source excerpt** (`from: "…"`, `text-[11px] text-zinc-400`) so the user can see which of their words produced it, and a **per-claim Add** button (`size="xs"` outline) that pushes that one claim into the shared list and flips to "Added"; it disables once added or at the ≤5 cap. A **vague/empty paragraph** returns no claims and shows a calm inline note ("Couldn't draft claims from that — add more detail, or write them manually.") on a `zinc-50` ground — no error styling, since an unproductive paragraph isn't a failure.
 
 ### Thesis health surfaces (Phase 4b)
 
@@ -160,6 +162,8 @@ These are the calls we made when the design comes under tension. When in doubt, 
 
 Newest first. Capture meaningful choices with one-sentence rationale.
 
+- **2026-06-15 — Drafter = third one-shot agent** (Opus 4.8, forced `return_drafted_claims` tool, fixture-backed) that *structures* the user's words into candidate claims and does **not** judge their validity — that stays the evaluator's job, keeping the three roles cleanly separated.
+- **2026-06-15 — Paragraph claims use a review-and-add UX, not a blind merge.** Drafted cards keep the source excerpt visible and let the user pick which claims land (per-claim Add into the shared ≤5 list) — the user stays in control of what becomes their thesis.
 - **2026-06-15 — `/settings` = single narrow column, sectioned label+description rows.** Flat over carded; section labels reuse the rail's uppercase-tracked zinc-400 style, one hairline per heading, controls right-aligned.
 - **2026-06-15 — Settings reached via a quiet header gear** grouped with the Clerk user button — utility chrome, not primary nav.
 - **2026-06-15 — DigestToggle = real `role="switch"`, accent track when on, optimistic + revert-on-error.** Never shows a fake-success state if the server action fails.

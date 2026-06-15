@@ -1,0 +1,5 @@
+{ "content": [{ "type": "tool_use", "id": "d1", "name": "return_drafted_claims", "input": { "claims": [
+  { "statement": "Data-center revenue continues to grow at a high rate year over year", "category": "financial_performance", "sourceExcerpt": "data center revenue keeps climbing" },
+  { "statement": "NVIDIA retains its lead over competing AI accelerators", "category": "competitive_position", "sourceExcerpt": "no one is close on the software stack" },
+  { "statement": "Hyperscaler capex on AI infrastructure stays elevated", "category": "macro_environment", "sourceExcerpt": "the big clouds keep spending" }
+] } }], "usage": { "input_tokens": 180, "output_tokens": 90 } }

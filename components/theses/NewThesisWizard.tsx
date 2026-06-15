@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ClaimForm } from "@/components/theses/ClaimForm";
+import { ParagraphDrafter } from "@/components/theses/ParagraphDrafter";
 import { CategoryBadge } from "@/components/theses/CategoryBadge";
 import {
   TIME_HORIZONS,
@@ -37,6 +38,7 @@ export function NewThesisWizard() {
   const [horizon, setHorizon] = useState<TimeHorizon>("6_to_12_months");
   const [status, setStatus] = useState<(typeof CREATE_STATUSES)[number]>("active");
   const [claims, setClaims] = useState<ClaimInput[]>([]);
+  const [claimMode, setClaimMode] = useState<"manual" | "paragraph">("manual");
 
   // Single source of truth for the ticker rule — same schema the server enforces.
   const tickerOk = TickerSchema.safeParse(ticker).success;
@@ -166,14 +168,36 @@ export function NewThesisWizard() {
             </div>
           ))}
 
-          {claims.length < MAX_CLAIMS ? (
+          <div className="inline-flex overflow-hidden rounded-lg border border-zinc-200 text-sm">
+            {(["manual", "paragraph"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setClaimMode(m)}
+                className={`px-3.5 py-1.5 font-medium ${
+                  claimMode === m ? "bg-primary text-primary-foreground" : "text-zinc-500"
+                }`}
+              >
+                {m === "manual" ? "Write manually" : "Start from a paragraph"}
+              </button>
+            ))}
+          </div>
+
+          {claims.length >= MAX_CLAIMS ? (
+            <p className="text-xs text-zinc-400">Maximum of {MAX_CLAIMS} claims reached.</p>
+          ) : claimMode === "manual" ? (
             <ClaimForm
               key={claims.length}
               submitLabel="Add claim"
               onSubmit={(input) => setClaims((prev) => [...prev, input])}
             />
           ) : (
-            <p className="text-xs text-zinc-400">Maximum of {MAX_CLAIMS} claims reached.</p>
+            <ParagraphDrafter
+              ticker={ticker}
+              positionDirection={direction}
+              canAdd={claims.length < MAX_CLAIMS}
+              onAdd={(claim) => setClaims((prev) => (prev.length < MAX_CLAIMS ? [...prev, claim] : prev))}
+            />
           )}
 
           <div className="flex justify-between pt-2">

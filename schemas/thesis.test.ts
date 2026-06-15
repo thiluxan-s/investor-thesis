@@ -4,6 +4,7 @@ import {
   ClaimInputSchema,
   CreateThesisSchema,
   UpdateThesisSchema,
+  DraftRequestSchema,
 } from "./thesis";
 
 const validClaim = { statement: "Revenue grows over forty percent YoY.", category: "financial_performance" } as const;
@@ -78,5 +79,22 @@ describe("UpdateThesisSchema", () => {
       expect(data.ticker).toBeUndefined();
       expect(data.positionDirection).toBeUndefined();
     }
+  });
+});
+
+describe("DraftRequestSchema", () => {
+  const base = { ticker: "NVDA", positionDirection: "long" as const };
+  it("accepts valid input", () => {
+    expect(DraftRequestSchema.safeParse({ ...base, reasoning: "x".repeat(50) }).success).toBe(true);
+  });
+  it("rejects reasoning under 30 chars", () => {
+    expect(DraftRequestSchema.safeParse({ ...base, reasoning: "too short" }).success).toBe(false);
+  });
+  it("rejects reasoning over 2000 chars", () => {
+    expect(DraftRequestSchema.safeParse({ ...base, reasoning: "x".repeat(2001) }).success).toBe(false);
+  });
+  it("normalizes the ticker", () => {
+    const r = DraftRequestSchema.safeParse({ ...base, ticker: " nvda ", reasoning: "x".repeat(40) });
+    expect(r.success && r.data.ticker).toBe("NVDA");
   });
 });
