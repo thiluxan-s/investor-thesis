@@ -52,6 +52,11 @@ export async function setDigestEnabled(userId: string, enabled: boolean): Promis
   await db.update(users).set({ digestEnabled: enabled }).where(eq(users.id, userId));
 }
 
+export async function getUserById(id: string): Promise<User | null> {
+  const [row] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  return row ?? null;
+}
+
 // Distinct users that own at least one active thesis — the cron's scheduling set.
 export async function listUserIdsWithActiveTheses(): Promise<string[]> {
   const rows = await db
