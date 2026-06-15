@@ -60,6 +60,16 @@ export async function incrementRunTotals(
     .where(eq(agentRuns.id, runId));
 }
 
+// Unscoped reads — callers must enforce their own access control (see lib/demo).
+export async function getAgentRunById(runId: string): Promise<AgentRun | null> {
+  const [row] = await db.select().from(agentRuns).where(eq(agentRuns.id, runId)).limit(1);
+  return row ?? null;
+}
+
+export async function listAgentRunsForThesisById(thesisId: string): Promise<AgentRun[]> {
+  return db.select().from(agentRuns).where(eq(agentRuns.thesisId, thesisId)).orderBy(desc(agentRuns.createdAt));
+}
+
 export async function getAgentRunForUser(userId: string, runId: string): Promise<AgentRun | null> {
   const [row] = await db
     .select({ run: agentRuns })

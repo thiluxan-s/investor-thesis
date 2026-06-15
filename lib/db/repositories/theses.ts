@@ -89,6 +89,17 @@ export async function getThesisForUser(
   return { ...thesis, claims: claimRows };
 }
 
+// Unscoped read — callers must enforce their own access control (see lib/demo).
+export async function getThesisWithClaimsById(thesisId: string): Promise<ThesisWithClaims | null> {
+  const [thesisRows, claimRows] = await db.batch([
+    db.select().from(theses).where(eq(theses.id, thesisId)).limit(1),
+    db.select().from(claims).where(eq(claims.thesisId, thesisId)).orderBy(claims.ordinal),
+  ]);
+  const thesis = thesisRows[0];
+  if (!thesis) return null;
+  return { ...thesis, claims: claimRows };
+}
+
 export async function updateThesis(
   userId: string,
   thesisId: string,
