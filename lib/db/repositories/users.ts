@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { users, type User } from "@/lib/db/schema";
+import { users, theses, type User } from "@/lib/db/schema";
 
 export async function getUserByClerkId(clerkUserId: string): Promise<User | null> {
   const [row] = await db
@@ -46,4 +46,22 @@ export async function upsertUserFromClerk(input: {
 
 export async function deleteUserByClerkId(clerkUserId: string): Promise<void> {
   await db.delete(users).where(eq(users.clerkUserId, clerkUserId));
+}
+
+export async function setDigestEnabled(userId: string, enabled: boolean): Promise<void> {
+  await db.update(users).set({ digestEnabled: enabled }).where(eq(users.id, userId));
+}
+
+export async function getUserById(id: string): Promise<User | null> {
+  const [row] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  return row ?? null;
+}
+
+// Distinct users that own at least one active thesis — the cron's scheduling set.
+export async function listUserIdsWithActiveTheses(): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ userId: theses.userId })
+    .from(theses)
+    .where(eq(theses.status, "active"));
+  return rows.map((r) => r.userId);
 }

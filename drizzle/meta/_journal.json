@@ -29,6 +29,13 @@
       "when": 1781432521346,
       "tag": "0003_black_paladin",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1781468834075,
+      "tag": "0004_needy_blindfold",
+      "breakpoints": true
     }
   ]
 }

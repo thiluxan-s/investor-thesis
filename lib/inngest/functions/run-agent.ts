@@ -5,6 +5,7 @@ import { listRecentSourceUrlsForThesis, findOrCreateSource } from "@/lib/db/repo
 import { markRunning, finishRun, incrementRunTotals } from "@/lib/db/repositories/agent-runs";
 import { appendIteration } from "@/lib/db/repositories/agent-run-iterations";
 import { createEvidence } from "@/lib/db/repositories/evidence";
+import { recordBatchProgress } from "@/lib/db/repositories/digest-batches";
 import { runResearcher, type ResearcherPersist } from "@/lib/ai/agents/researcher";
 import { createAnthropicClient, type AnthropicLike } from "@/lib/ai/client";
 import { buildToolContext } from "@/lib/ai/tool-context";
@@ -16,11 +17,26 @@ import { hostnameOf, sha256 } from "@/lib/ai/url";
 export const runAgent = inngest.createFunction(
   { id: "run-agent", retries: 2, triggers: [{ event: "agent.run-requested" }] },
   async ({ event, step }) => {
-    const { agentRunId, thesisId, userId, scenario } = event.data as AgentRunRequested["data"];
+    const { agentRunId, thesisId, userId, scenario, batchId } = event.data as AgentRunRequested["data"];
+
+    // Count this scheduled run against its digest batch exactly once, and fire
+    // the digest if it was the last one. No-op for manual runs (no batchId). Its
+    // own step.run is memoized, so a retry won't double-count.
+    async function settleBatch(): Promise<void> {
+      if (!batchId) return;
+      const { complete } = await step.run("record-batch-progress", () => recordBatchProgress(batchId));
+      if (complete) {
+        await step.sendEvent("emit-digest-requested", {
+          name: "digest.requested",
+          data: { userId, batchId, scenario },
+        });
+      }
+    }
 
     const thesis = await step.run("load-thesis", () => getThesisForUser(userId, thesisId));
     if (!thesis) {
       await finishRun(agentRunId, "failed", { error: "Thesis not found or not owned" });
+      await settleBatch();
       return { status: "failed" as const };
     }
     const seen = await step.run("load-seen", () => listRecentSourceUrlsForThesis(thesisId, 90));
@@ -99,12 +115,15 @@ export const runAgent = inngest.createFunction(
       { error: result.reason },
     );
 
-    // Kick off evaluation only when the run actually produced evidence.
     if (result.status !== "failed" && result.evidenceCount > 0) {
+      // Evidence path: evaluation runs next and will record batch progress when done.
       await step.sendEvent("emit-agent-run-completed", {
         name: "agent-run.completed",
-        data: { agentRunId, thesisId, userId, scenario },
+        data: { agentRunId, thesisId, userId, scenario, batchId },
       });
+    } else {
+      // No-evidence (or failed) scheduled run: no evaluation will fire, so settle here.
+      await settleBatch();
     }
 
     return { status: result.status };

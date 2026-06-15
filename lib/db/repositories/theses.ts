@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { theses, claims, type Thesis, type Claim } from "@/lib/db/schema";
 import type { CreateThesisInput, UpdateThesisInput } from "@/schemas/thesis";
@@ -116,4 +116,16 @@ export async function deleteThesis(
     .where(and(eq(theses.id, thesisId), eq(theses.userId, userId)))
     .returning({ id: theses.id });
   return rows.length > 0 ? { ok: true } : { ok: false, reason: "not_found" };
+}
+
+export async function listActiveThesesByUser(userId: string): Promise<Thesis[]> {
+  return db
+    .select()
+    .from(theses)
+    .where(and(eq(theses.userId, userId), eq(theses.status, "active")));
+}
+
+export async function getThesesByIds(ids: string[]): Promise<Thesis[]> {
+  if (ids.length === 0) return [];
+  return db.select().from(theses).where(inArray(theses.id, ids));
 }
