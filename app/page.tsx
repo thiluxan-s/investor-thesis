@@ -75,9 +75,10 @@ export default function LandingPage() {
               <Button asChild size="lg">
                 <Link href="/sign-up">Create your thesis</Link>
               </Button>
-              <span className="text-sm text-zinc-500">
-                Free · bring a position you already hold
-              </span>
+              <Button asChild size="lg" variant="outline">
+                <Link href="/demo">Try the demo</Link>
+              </Button>
+              <span className="text-sm text-zinc-500">No sign-up required</span>
             </div>
           </div>
 
