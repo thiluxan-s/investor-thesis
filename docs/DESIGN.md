@@ -172,12 +172,30 @@ Paragraph mode renders **`ParagraphDrafter`** — a **review-and-add** pattern, 
 
 **Landing CTA (`app/page.tsx`):** a secondary `variant="outline"` "Try the demo" button beside the primary "Create your thesis", with a "No sign-up required" helper — the demo's headline selling point. (Full hero visual polish is 6c.)
 
+### Landing polish (Phase 6c)
+
+**Goal:** The landing page reads as a senior portfolio piece in ~10 seconds and makes "Try the demo" irresistible — by showing the *actual* product UI, not a screenshot.
+
+**Hero (refined):** the structure (eyebrow → headline → lede → two CTAs) is unchanged; the right column's hand-built `ClaimPreview` card is replaced by a **browser-framed live dashboard**. The entrance is still the existing `animate-rise` stagger (the frame is above the fold, so it animates on load with the same `240ms` delay).
+
+**Product showcase — "Watch the agent think":** a second section (`border-t`, asymmetric `lg:grid-cols-[0.9fr_1.1fr]`, generous `py-20`) pairs a short eyebrow + `text-3xl` heading + lede with a **browser-framed agent-trace** — the differentiator. It mirrors the hero's grid language at a flipped weight so the page has rhythm without repetition.
+
+**`BrowserFrame` (`components/landing/BrowserFrame.tsx`):** a server component (Next `Link` works server-side, so no client cost) — subtle chrome (three zinc traffic-light dots + a mono `thesistracker.app/demo` URL pill + a `group-hover` "Open demo →" hint) over a layered product-shot shadow that matches the old hero card's shadow and deepens on hover. **The whole frame is a `Link href="/demo"`** — clicking the "screenshot" opens the real demo.
+
+**Live components, not screenshots:** the frames render the app's **real pure components** — `ShowcaseDashboard` reuses `HealthBar` / `HealthChart` / `CategoryBadge`; `ShowcaseTrace` is a faithful static rebuild using the trace's own tokens (numbered spine, mono tool-call chip, evidence card with `border-l-health-strong`, verdict dots + `tabular-nums` confidence — byte-identical to `EvidenceCard`'s `IMPACT_STYLE`). Data is **in-file typed constants** (`components/landing/showcase-data.ts`) mirroring the seeded NVDA demo (declining-then-recovering trend, one weakening claim). The landing page stays a **static Server Component — no DB, no auth**; the real, interactive version is one click away at `/demo`.
+
+**Motion:** one tasteful below-the-fold moment — the trace frame fades/rises in via a tiny client `Reveal` (`motion/react` `whileInView`, once). The hero frame keeps the CSS `animate-rise`.
+
+**Trace = faithful rebuild, not component reuse:** `ShowcaseTrace` rebuilds the iteration markup rather than importing the real `IterationCard`/`EvidenceCard`, because those require full DB-row types (`AgentRunIteration`, `Evidence`) that would be brittle to hand-fake on a static page. It drops the real card's interactive `<details>` expander (no reasoning to expand in the showcase) and otherwise matches the real tokens exactly.
+
 ---
 
 ## Decisions log
 
 Newest first. Capture meaningful choices with one-sentence rationale.
 
+- **2026-06-20 — Landing product showcase = live prop-driven components in a `BrowserFrame`, not screenshots.** Reuses the real `HealthBar`/`HealthChart`/`CategoryBadge` + in-file typed constants, kept DB-free on a static Server Component; crisp at any resolution, never goes stale, and the whole frame links to the real `/demo`.
+- **2026-06-20 — The landing trace is a faithful rebuild (`ShowcaseTrace`), not a reuse of `IterationCard`/`EvidenceCard`.** Those need full DB-row types that would be brittle to fake; the rebuild matches the trace's visual tokens exactly and drops only the interactive `<details>` expander.
 - **2026-06-15 — The demo = public read-only routes + a sentinel demo user, not a shared signed-in account.** Read-only is structural (unauthenticated visitor + ownership-scoped mutations), so no per-account read-only flag is needed; the `scopeToDemo` guard stops `/demo/runs/[id]` from leaking another user's run.
 - **2026-06-15 — Demo pages reuse the authenticated components/layout verbatim** so the demo reads as the real product; the only "demo" tells are the `DemoBanner` and the absence of write controls.
 - **2026-06-15 — Demo data is re-seedable via the fixtured pipeline** (one real run → real trace/verdicts) plus backdated snapshots for the chart trend — real reasoning, only the history's timing is seeded.
