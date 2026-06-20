@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { Show } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
+import { BrowserFrame } from "@/components/landing/BrowserFrame";
+import { Reveal } from "@/components/landing/Reveal";
+import { ShowcaseDashboard } from "@/components/landing/ShowcaseDashboard";
+import { ShowcaseTrace } from "@/components/landing/ShowcaseTrace";
 
 const steps = [
   {
@@ -82,51 +86,33 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div
-            className="animate-rise rounded-xl border border-zinc-200 bg-zinc-50/60 p-5 shadow-[0_1px_0_rgba(0,0,0,0.02),0_8px_24px_-12px_rgba(0,0,0,0.12)]"
-            style={{ animationDelay: "240ms" }}
-          >
-            <div className="flex items-center justify-between">
-              <span className="rounded-md bg-primary/10 px-2 py-0.5 font-mono text-xs font-medium text-primary">
-                NVDA · LONG
+          <div className="animate-rise" style={{ animationDelay: "240ms" }}>
+            <BrowserFrame url="thesistracker.app/demo">
+              <ShowcaseDashboard />
+            </BrowserFrame>
+          </div>
+        </section>
+
+        <section className="border-t border-zinc-100">
+          <div className="mx-auto grid max-w-6xl items-center gap-12 px-6 py-20 lg:grid-cols-[0.9fr_1.1fr]">
+            <div>
+              <span className="font-mono text-xs font-medium uppercase tracking-[0.12em] text-primary">
+                Watch the agent think
               </span>
-              <span className="font-mono text-xs text-zinc-400">6–12 mo</span>
+              <h2 className="mt-4 text-balance text-3xl font-semibold leading-tight tracking-tight">
+                Every verdict shows its work.
+              </h2>
+              <p className="mt-4 max-w-[42ch] leading-relaxed text-zinc-600">
+                The agent plans, searches, reads the source, and evaluates each
+                finding against your claims — and you see the whole trail: the
+                reasoning, the tool calls, the evidence, and how it scored.
+              </p>
             </div>
-            <p className="mt-3 text-sm font-semibold text-zinc-900">
-              Long NVDA — data-center thesis
-            </p>
-            <p className="mt-1 text-xs text-zinc-500">
-              Overall health{" "}
-              <span className="font-mono font-medium text-health-strong">
-                +0.62
-              </span>{" "}
-              · 4 claims · last run 2d ago
-            </p>
-
-            <div className="mt-5 space-y-4">
-              <ClaimPreview
-                label="Data-center revenue grows >40% YoY"
-                strong={6}
-                neutral={2}
-                weak={1}
-              />
-              <ClaimPreview
-                label="CUDA remains a durable moat"
-                strong={4}
-                neutral={3}
-                weak={2}
-              />
-              <ClaimPreview
-                label="Hyperscaler capex stays elevated"
-                strong={3}
-                neutral={2}
-                weak={4}
-              />
-            </div>
-
-            <p className="mt-5 text-[11px] text-zinc-400">
-              8 pieces of evidence collected
-            </p>
+            <Reveal>
+              <BrowserFrame url="thesistracker.app/demo">
+                <ShowcaseTrace />
+              </BrowserFrame>
+            </Reveal>
           </div>
         </section>
 
@@ -151,29 +137,6 @@ export default function LandingPage() {
           you hold — it never tells you to buy or sell.
         </p>
       </footer>
-    </div>
-  );
-}
-
-function ClaimPreview({
-  label,
-  strong,
-  neutral,
-  weak,
-}: {
-  label: string;
-  strong: number;
-  neutral: number;
-  weak: number;
-}) {
-  return (
-    <div>
-      <p className="text-xs text-zinc-600">{label}</p>
-      <div className="mt-2 flex h-1.5 gap-0.5 overflow-hidden rounded-full bg-zinc-100">
-        <span className="bg-health-strong" style={{ flex: strong }} />
-        <span className="bg-health-neutral" style={{ flex: neutral }} />
-        <span className="bg-health-weak" style={{ flex: weak }} />
-      </div>
     </div>
   );
 }
