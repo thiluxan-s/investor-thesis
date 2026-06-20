@@ -1,6 +1,7 @@
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users, theses, type User } from "@/lib/db/schema";
+import { DEMO_USER_CLERK_ID } from "@/lib/demo/constants";
 
 export async function getUserByClerkId(clerkUserId: string): Promise<User | null> {
   const [row] = await db
@@ -62,6 +63,7 @@ export async function listUserIdsWithActiveTheses(): Promise<string[]> {
   const rows = await db
     .selectDistinct({ userId: theses.userId })
     .from(theses)
-    .where(eq(theses.status, "active"));
+    .innerJoin(users, eq(users.id, theses.userId))
+    .where(and(eq(theses.status, "active"), ne(users.clerkUserId, DEMO_USER_CLERK_ID)));
   return rows.map((r) => r.userId);
 }

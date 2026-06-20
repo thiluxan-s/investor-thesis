@@ -156,12 +156,31 @@ Paragraph mode renders **`ParagraphDrafter`** — a **review-and-add** pattern, 
 
 **Last analyzed (`lib/format/relative-time.ts`):** a coarse relative label ("just now", `Nm/Nh/Nd/Nw ago`) appended to the existing zinc meta line on list rows (`ThesisRow`) and the detail header — "· Analyzed Nd ago", or **"Not analyzed"** when no run has completed. Coarse buckets on purpose (this isn't a precise timestamp surface), and the never-run wording stays consistent with the Phase 4b health "Not analyzed" placeholder rather than inventing a second empty phrasing.
 
+### Demo path (Phase 6b)
+
+**Goal:** A recruiter clicks "Try the demo" and lands on what reads as the *real* product — a fully-populated thesis with a live, inspectable agent trace — with no sign-up. The demo's only job visually is to be indistinguishable from the authenticated dashboard except for one calm banner.
+
+**Public routes (`app/demo/`, outside the `(app)` auth group):** `app/demo/page.tsx` (dashboard) and `app/demo/runs/[runId]/page.tsx` (trace) reuse the **same components and layout** as the authenticated detail/trace pages — identical typography hierarchy, the same `grid-cols-[1fr_280px] gap-8` split, the same zinc/deep-blue tokens, `HealthBar` / `HealthChart` / `RunHeader` / `IterationCard` / verdict mapping. They drop only the write affordances (no Analyze-now, edit, delete, status select, notes, drafter) and the auth-only chrome (`PollWhileRunning`, the failed-run banner — demo runs are terminal). Because they sit outside `(app)/layout.tsx` they carry **no app header**; the `DemoBanner` is the page's only chrome (a deliberate "kept the spotlight on the thesis" call — revisit in 6c if the demo needs a wordmark for orientation).
+
+**Read-only by construction, not by flag:** the visitor is unauthenticated and every mutation server action is `requireUserId` + ownership-scoped, so there is nothing to mutate — the demo pages simply render no write UI. The `getDemoRun` scope guard (`lib/demo/scope.ts` `scopeToDemo`) returns `null` for any run whose `thesisId !== DEMO_THESIS_ID`, so `/demo/runs/<any-other-id>` 404s rather than leaking a real user's run.
+
+**`DemoBanner` (`components/demo/DemoBanner.tsx`):** calm utility chrome — `rounded-xl border-zinc-200 bg-zinc-50` with "You're viewing a live demo thesis — read-only" and a primary "Sign up to track your own" button. Same banner on the dashboard and the trace; the trace adds a quiet "← Back to the demo thesis" link.
+
+**`DemoClaimList` (`components/demo/DemoClaimList.tsx`):** a read-only mirror of the real claim cards — same `border-b` density, mono index, `CategoryBadge`, and `HealthBar` — minus every edit affordance, so it renders without importing the editable client-side `ClaimList`.
+
+**Seeded trend, real trace:** the chart shows a genuine multi-week decline (0.55 → 0.40 → 0.20 → 0.00) from **backdated snapshots**, while the trace, evidence, and evaluator verdicts are **real output from the fixtured pipeline** — the demo never fakes the reasoning, only the passage of time.
+
+**Landing CTA (`app/page.tsx`):** a secondary `variant="outline"` "Try the demo" button beside the primary "Create your thesis", with a "No sign-up required" helper — the demo's headline selling point. (Full hero visual polish is 6c.)
+
 ---
 
 ## Decisions log
 
 Newest first. Capture meaningful choices with one-sentence rationale.
 
+- **2026-06-15 — The demo = public read-only routes + a sentinel demo user, not a shared signed-in account.** Read-only is structural (unauthenticated visitor + ownership-scoped mutations), so no per-account read-only flag is needed; the `scopeToDemo` guard stops `/demo/runs/[id]` from leaking another user's run.
+- **2026-06-15 — Demo pages reuse the authenticated components/layout verbatim** so the demo reads as the real product; the only "demo" tells are the `DemoBanner` and the absence of write controls.
+- **2026-06-15 — Demo data is re-seedable via the fixtured pipeline** (one real run → real trace/verdicts) plus backdated snapshots for the chart trend — real reasoning, only the history's timing is seeded.
 - **2026-06-15 — Drafter = third one-shot agent** (Opus 4.8, forced `return_drafted_claims` tool, fixture-backed) that *structures* the user's words into candidate claims and does **not** judge their validity — that stays the evaluator's job, keeping the three roles cleanly separated.
 - **2026-06-15 — Paragraph claims use a review-and-add UX, not a blind merge.** Drafted cards keep the source excerpt visible and let the user pick which claims land (per-claim Add into the shared ≤5 list) — the user stays in control of what becomes their thesis.
 - **2026-06-15 — `/settings` = single narrow column, sectioned label+description rows.** Flat over carded; section labels reuse the rail's uppercase-tracked zinc-400 style, one hairline per heading, controls right-aligned.
