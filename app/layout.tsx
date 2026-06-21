@@ -5,10 +5,25 @@ import { GeistMono } from "geist/font/mono";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
+const DESCRIPTION =
+  "An AI agent that watches the world for evidence that strengthens or weakens your investment thesis.";
+
 export const metadata: Metadata = {
+  metadataBase: new URL("https://investor-thesis.vercel.app"),
   title: "Thesis Tracker",
-  description:
-    "An AI agent that watches the world for evidence that strengthens or weakens your investment thesis.",
+  description: DESCRIPTION,
+  openGraph: {
+    type: "website",
+    siteName: "Thesis Tracker",
+    title: "Thesis Tracker",
+    description: DESCRIPTION,
+    url: "https://investor-thesis.vercel.app",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Thesis Tracker",
+    description: DESCRIPTION,
+  },
 };
 
 export default function RootLayout({
