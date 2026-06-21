@@ -1,5 +1,7 @@
 # Thesis Tracker
 
+**Status:** Shipped · v1 complete · [live demo](https://investor-thesis.vercel.app/demo)
+
 **An AI agent that watches the world for evidence that strengthens or weakens your investment thesis.**
 
 You write a thesis — a position you hold plus the falsifiable claims behind it. A hand-written
@@ -102,6 +104,17 @@ USE_AI_FIXTURES=1 DATABASE_URL="<your-prod-database-url>" \
 The shell `DATABASE_URL` overrides `--env-file`, so this targets prod while `.env.local`
 supplies the other validated env vars. The seed is idempotent — safe to re-run. It only needs
 `DATABASE_URL` + `USE_AI_FIXTURES`.
+
+## Build status
+
+Delivered in phases, each a working, reviewable slice:
+
+- [x] **Phase 1 — Foundation** — Next.js + Clerk + Neon/Drizzle scaffold, typed env, CI basics
+- [x] **Phase 2 — Thesis CRUD** — create/edit theses and falsifiable claims
+- [x] **Phase 3 — Researcher agent** — hand-written tool loop + inspectable run trace UI
+- [x] **Phase 4 — Evaluator & health** — per-claim scoring and thesis-health-over-time
+- [x] **Phase 5 — Schedule & digest** — weekly Inngest cron + Resend email summaries
+- [x] **Phase 6 — Drafting, demo, polish & ship** — paragraph→claims drafter, public read-only demo, landing page, hardening, and production deploy
 
 ## What I'd build next
 
