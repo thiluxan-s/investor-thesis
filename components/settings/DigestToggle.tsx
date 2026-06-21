@@ -27,7 +27,7 @@ export function DigestToggle({ initialEnabled }: { initialEnabled: boolean }) {
       aria-label="Weekly email digest"
       disabled={pending}
       onClick={toggle}
-      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 ${
         enabled ? "bg-primary" : "bg-zinc-200"
       }`}
     >

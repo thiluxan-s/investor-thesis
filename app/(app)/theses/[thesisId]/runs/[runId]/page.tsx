@@ -74,6 +74,11 @@ export default async function TracePage({
         ))}
         {iterations.length === 0 && <p className="text-sm text-zinc-400">Waiting for the agent to start…</p>}
       </div>
+      {isTerminalStatus(run.status) && run.status !== "failed" && run.evidenceCollected === 0 && (
+        <p className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-500">
+          This run finished without finding new evidence.
+        </p>
+      )}
     </div>
   );
 }
