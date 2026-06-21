@@ -101,7 +101,7 @@ export function NewThesisWizard() {
                   key={d}
                   type="button"
                   onClick={() => setDirection(d)}
-                  className={`px-4 py-2 text-sm font-medium ${
+                  className={`px-4 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50 ${
                     direction === d ? "bg-primary text-primary-foreground" : "text-zinc-500"
                   }`}
                 >
@@ -174,7 +174,7 @@ export function NewThesisWizard() {
                 key={m}
                 type="button"
                 onClick={() => setClaimMode(m)}
-                className={`px-3.5 py-1.5 font-medium ${
+                className={`px-3.5 py-1.5 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50 ${
                   claimMode === m ? "bg-primary text-primary-foreground" : "text-zinc-500"
                 }`}
               >

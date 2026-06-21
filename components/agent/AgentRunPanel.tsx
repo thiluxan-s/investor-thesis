@@ -61,6 +61,9 @@ export function AgentRunPanel({ thesisId, runs }: { thesisId: string; runs: Agen
         {latest.status === "failed" && latest.error && (
           <p className="mt-1 text-[11px] text-[#C0492F]">{latest.error}</p>
         )}
+        {isTerminalStatus(latest.status) && latest.status !== "failed" && latest.evidenceCollected === 0 && (
+          <p className="mt-1 text-[11px] text-zinc-400">No new evidence this run</p>
+        )}
         <span className="mt-2 inline-block text-[11px] font-medium text-primary">View trace →</span>
       </Link>
       {runs.length > 1 && (

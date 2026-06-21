@@ -75,7 +75,7 @@ export default async function ThesisDetailPage({
         <AnalyzeNowButton thesisId={thesis.id} disabled={Boolean(activeRun)} />
       </div>
 
-      <div className="mt-8 grid grid-cols-[1fr_280px] gap-8">
+      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_280px]">
         <div>
           <ClaimList thesisId={thesis.id} claims={thesis.claims} />
 

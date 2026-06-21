@@ -4,7 +4,7 @@ export function BrowserFrame({ url, children }: { url: string; children: React.R
   return (
     <Link
       href="/demo"
-      className="group block overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-[0_1px_0_rgba(0,0,0,0.02),0_8px_24px_-12px_rgba(0,0,0,0.12)] transition-shadow hover:shadow-[0_1px_0_rgba(0,0,0,0.02),0_18px_44px_-18px_rgba(0,0,0,0.2)]"
+      className="group block overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-[0_1px_0_rgba(0,0,0,0.02),0_8px_24px_-12px_rgba(0,0,0,0.12)] transition-shadow hover:shadow-[0_1px_0_rgba(0,0,0,0.02),0_18px_44px_-18px_rgba(0,0,0,0.2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2"
     >
       <div className="flex items-center gap-2 border-b border-zinc-100 bg-zinc-50/80 px-3.5 py-2.5">
         <span className="flex gap-1.5" aria-hidden>
