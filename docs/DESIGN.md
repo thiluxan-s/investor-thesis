@@ -188,12 +188,31 @@ Paragraph mode renders **`ParagraphDrafter`** — a **review-and-add** pattern, 
 
 **Trace = faithful rebuild, not component reuse:** `ShowcaseTrace` rebuilds the iteration markup rather than importing the real `IterationCard`/`EvidenceCard`, because those require full DB-row types (`AgentRunIteration`, `Evidence`) that would be brittle to hand-fake on a static page. It drops the real card's interactive `<details>` expander (no reasoning to expand in the showcase) and otherwise matches the real tokens exactly.
 
+### Hardening (Phase 6d)
+
+**Goal:** Every screen works on a phone, loads gracefully, and degrades calmly — production-quality, not a desktop prototype.
+
+**Mobile (mobile-first responsive):** the protected app + demo surfaces were desktop-only. Strategy: base = stacked, breakpoint restores the desktop layout — the thesis detail and demo dashboard go `grid-cols-1 gap-8 lg:grid-cols-[1fr_280px]` (claims first, rail below on phones). `RunHeader`'s dense meta row gains `flex-wrap` so the five stats don't overflow narrow screens. `ToolCallBlock` was already mobile-safe (`truncate` preview + `overflow-x-auto` expand). Desktop rendering is unchanged.
+
+**Loading skeletons (not spinners):** a shared `Skeleton` (`components/ui/skeleton.tsx`, `animate-pulse rounded-md bg-zinc-100`) backs route-level `loading.tsx` for the slower reads — theses list, thesis detail, run trace — each skeleton matching its page's real layout (rows / two-column / timeline) so the load→content swap is seamless. `/settings` and `/theses/new` are form surfaces and skip it.
+
+**Branded boundaries:** `app/(app)/error.tsx` (client, the only one that must be) renders a calm "Something went wrong" + "Try again" (`reset()`) + "Back to theses", with a brick-accented icon chip mirroring the 0-theses empty-state chip — and never prints the `error` (no internal leakage). `app/not-found.tsx` is a branded 404 (mono `404` eyebrow → heading → "Back home"), hit by every `notFound()` including the demo scope guard. Both are calm-not-alarming, matching the tool-error tone.
+
+**No-new-evidence empty state:** a run can finish successfully yet collect nothing. Gated on `isTerminalStatus(status) && status !== "failed" && evidenceCollected === 0`, the trace shows a quiet zinc note ("This run finished without finding new evidence.") and `AgentRunPanel` a muted "No new evidence this run" — distinct from the failed-run red box, consistent with the existing quiet-meta convention.
+
+**Accessibility (targeted, not a full WCAG audit):** focus-visible rings (deep-blue `primary`, matching shadcn) on the custom controls that lacked them — the landing `BrowserFrame` link, the `DigestToggle` switch, and both new-thesis segmented controls (`ring-inset`, since they sit inside bordered containers). Icon-only controls already carry `aria-label` (e.g. the header gear), decorative spans are `aria-hidden`, and the `DigestToggle` is a real `role="switch"`. Contrast spot-check: `text-zinc-400` is below AA on white, but it is used only for deliberately-quiet secondary/decorative meta (a standing design decision) with no body-critical text depending on it, so it is left as-is rather than bumped app-wide.
+
 ---
 
 ## Decisions log
 
 Newest first. Capture meaningful choices with one-sentence rationale.
 
+- **2026-06-20 — Mobile-first responsive (base stacked, `lg:` desktop), desktop rendering unchanged.** App + demo two-column grids stack on phones; only the offending fixed grids/rows were touched.
+- **2026-06-20 — Skeletons (not spinners) for the slower routes** (list/detail/trace) via a shared `Skeleton`, each matching its page layout for a seamless swap.
+- **2026-06-20 — Branded `error`/`not-found` boundaries that never leak internals.** `app/(app)/error.tsx` (client, calm "Something went wrong" + retry) and a branded root `app/not-found.tsx`; the error body never prints the caught `error`.
+- **2026-06-20 — "No new evidence this run" empty state** gated on `terminal && !failed && evidenceCollected === 0`, distinct from the failed-run red box and consistent with the quiet-meta convention.
+- **2026-06-20 — A11y pass is targeted, not a full WCAG audit:** focus-visible rings on custom controls; `text-zinc-400` quiet meta deliberately kept (no body-critical text depends on it) rather than bumped app-wide.
 - **2026-06-20 — Landing product showcase = live prop-driven components in a `BrowserFrame`, not screenshots.** Reuses the real `HealthBar`/`HealthChart`/`CategoryBadge` + in-file typed constants, kept DB-free on a static Server Component; crisp at any resolution, never goes stale, and the whole frame links to the real `/demo`.
 - **2026-06-20 — The landing trace is a faithful rebuild (`ShowcaseTrace`), not a reuse of `IterationCard`/`EvidenceCard`.** Those need full DB-row types that would be brittle to fake; the rebuild matches the trace's visual tokens exactly and drops only the interactive `<details>` expander.
 - **2026-06-15 — The demo = public read-only routes + a sentinel demo user, not a shared signed-in account.** Read-only is structural (unauthenticated visitor + ownership-scoped mutations), so no per-account read-only flag is needed; the `scopeToDemo` guard stops `/demo/runs/[id]` from leaking another user's run.
