@@ -2,89 +2,111 @@
 
 **An AI agent that watches the world for evidence that strengthens or weakens your investment thesis.**
 
-You write a position you hold and the specific claims behind it. A research agent then runs on a schedule, autonomously gathers fresh evidence from the web (news, SEC filings, company communications), and a separate evaluator judges each piece against each claim. Over time you get a "thesis health" view — with full citations and an inspectable trail of the agent's reasoning.
+You write a thesis — a position you hold plus the falsifiable claims behind it. A hand-written
+agent loop then researches the web and SEC filings on a schedule, an evaluator scores each new
+piece of evidence against your claims, and a "thesis health" view tracks how the case for your
+position evolves over time. Every call the agent makes is inspectable.
 
-Thesis Tracker is a *reasoning* tool, not a recommender. It never tells you to buy or sell — it tracks the thesis you already hold and helps you notice when the world stops agreeing with it.
-
-> Portfolio project. It's the agentic-AI companion to [Wayfare](https://github.com/thiluxan-s/TravelApp): where Wayfare does bounded one-shot AI extraction (PDF → JSON), this one runs a real agent loop — plan → tool use → evaluate → repeat → structured output.
-
----
-
-## Status
-
-**Phase 1 — Foundation (current).** What's live today:
-
-- Next.js 16 (App Router) app deployed on Vercel.
-- Clerk authentication: sign-in / sign-up, protected app routes, a user synced to the database on sign-up (via webhook in production, lazy creation locally).
-- Neon Postgres with `pgvector` enabled, accessed through Drizzle ORM behind a repository layer.
-- A landing page and the (currently empty) `/theses` dashboard shell.
-
-What's coming next:
-
-- **Thesis & claim CRUD** — create, edit, and delete theses with their claims.
-- **The researcher agent** — a hand-written tool-use loop (web search, web fetch, SEC EDGAR) that gathers evidence, with every iteration stored and inspectable.
-- **The evaluator** — a separate model that scores each (claim, evidence) pair as strengthening / neutral / weakening.
-- **Scheduling & weekly email digests.**
-- **Paragraph-to-claims drafting** and a final design pass.
+It's the agentic counterpart to my earlier project, [Wayfare](https://github.com/thiluxan-s/TravelApp):
+where Wayfare's AI is bounded (PDF in → JSON out), this one's AI is a real loop —
+plan → tool use → evaluate → repeat → structured output.
 
 ## Live demo
 
-_Deploying — link will appear here once the Vercel deployment is live._
+**→ [investor-thesis.vercel.app/demo](https://investor-thesis.vercel.app/demo)** — a real NVDA
+thesis with a real trail of evidence, agent reasoning, and a health trend. **No sign-up required.**
 
----
+To create your own thesis, use the [full app](https://investor-thesis.vercel.app) (sign-in via Clerk).
 
-## Architecture in one line
+## Architecture
 
-Three clearly separated AI roles — a **researcher** that runs a hand-written agent loop to gather evidence, an **evaluator** that judges evidence against claims, and a **drafter** that structures a user's free-text reasoning into claims — with the loop written by hand (no agent framework) so every step is transparent and inspectable. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+```mermaid
+flowchart TD
+    User([Investor]) -->|writes free-text reasoning| Drafter[Drafter agent<br/>one-shot, structures claims]
+    Drafter --> Thesis[(Thesis + claims)]
+
+    Cron[Weekly cron] --> Inngest
+    Manual([Analyze now]) --> Inngest
+    Inngest[Inngest job] --> Researcher
+
+    subgraph Loop [Hand-written researcher loop]
+        Researcher[Researcher agent] -->|tool calls| Tools
+        Tools[web-search · web-fetch · edgar] -->|results| Researcher
+        Researcher -->|stop conditions:<br/>max iters / budget / done| Evidence[(Evidence)]
+    end
+
+    Evidence --> Evaluator[Evaluator agent<br/>one-shot, scores each item]
+    Evaluator -->|strengthens / weakens| Health[(Claim health + snapshot)]
+    Health --> Dashboard[Thesis dashboard<br/>+ inspectable run trace]
+    Health --> Summarizer[Summarizer agent<br/>one-shot, digest copy]
+    Summarizer --> Digest[Weekly email digest]
+
+    Thesis --> Researcher
+```
+
+Three (now four) agent roles are kept deliberately separate — different prompts, costs, and
+access patterns. The researcher runs a real tool loop; the evaluator, drafter, and summarizer
+are one-shot. The loop is hand-written (no framework) so every iteration is stored and replayable
+in the UI. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full design.
+
+## Design decisions
+
+- **Hand-written agent loop, not LangChain/Mastra.** The loop is the point — I wanted explicit
+  stop conditions and a stored, inspectable trace, not a framework abstraction.
+- **Separate researcher / evaluator / drafter agents, not one mega-prompt.** Different jobs,
+  different costs, different failure modes. Merging them would muddy all three.
+- **The drafter structures the user's *own* reasoning** into claims rather than inventing a
+  thesis — the tool assists judgement, it doesn't replace it.
+- **Forced tool-use for every structured output, validated with Zod.** AI responses are never
+  trusted as free-form JSON.
+- **pgvector, not a separate vector DB.** Postgres already there; embeddings live beside the data.
+- **Deterministic health math, not AI-scored aggregation.** Claim scores roll up by a fixed
+  formula so the trend line is reproducible and explainable.
+- **Weekly schedule, not real-time.** Matches how theses actually move and respects free-tier limits.
+- **Fixture-backed AI in dev (`USE_AI_FIXTURES=1`).** Agent runs cost real money; dev replays
+  cached outputs by default.
 
 ## Tech stack
 
-| Concern | Choice |
-| --- | --- |
-| Framework | Next.js 16 (App Router), TypeScript (strict) |
-| Styling | Tailwind CSS v4 + shadcn/ui (Radix, new-york, zinc) |
-| Database | Neon Postgres + `pgvector`, Drizzle ORM |
-| Auth | Clerk |
-| AI | Anthropic API, hand-written tool-use loop (no framework) |
-| Background jobs | Inngest _(from Phase 5)_ |
-| Email | Resend _(from Phase 5)_ |
-| Validation | Zod (env, inputs, tool schemas, AI outputs) |
-| Hosting | Vercel |
+Next.js 16 (App Router, Server Components) · TypeScript (strict) · Tailwind + shadcn/ui ·
+Neon Postgres + pgvector + Drizzle ORM · Clerk auth · Anthropic API (native tool use) ·
+Inngest (cron + ad-hoc jobs) · Resend + React Email · Zod everywhere · Vitest · Vercel.
 
 ## Local development
 
-Requires **Node 22** (see `.nvmrc`).
-
 ```bash
-nvm use            # Node 22
+git clone https://github.com/thiluxan-s/investor-thesis.git
+cd investor-thesis
 npm install
-cp .env.example .env.local   # then fill in Neon + Clerk values
-npm run db:migrate           # apply migrations (creates pgvector + users)
+cp .env.example .env.local   # fill in the values
+
+npm run db:migrate           # apply the schema to your database
 npm run dev                  # http://localhost:3000
 ```
 
-Useful scripts:
+- Set `USE_AI_FIXTURES=1` in `.env.local` to replay cached AI outputs instead of calling
+  the Anthropic API (default for dev — saves tokens).
+- Database migrations: `npm run db:migrate`.
+- `npm run typecheck` · `npm run lint` · `npm test` (tests require **Node 22**).
+
+## Deployment & seeding the demo
+
+The app deploys to Vercel. After the first deploy, seed the public `/demo` thesis into the
+**production** database (otherwise `/demo` 404s):
 
 ```bash
-npm run typecheck   # tsc --noEmit
-npm run lint        # eslint
-npm test            # vitest
-npm run db:generate # generate a migration after editing the schema
+USE_AI_FIXTURES=1 DATABASE_URL="<your-prod-database-url>" \
+  node --conditions=react-server --env-file=.env.local --import tsx scripts/seed-demo.ts
 ```
 
-Locally, a signed-in user's database row is created lazily on the first protected
-request, so you don't need to expose the Clerk webhook during development.
+The shell `DATABASE_URL` overrides `--env-file`, so this targets prod while `.env.local`
+supplies the other validated env vars. The seed is idempotent — safe to re-run. It only needs
+`DATABASE_URL` + `USE_AI_FIXTURES`.
 
-## Project structure
+## What I'd build next
 
-```
-app/                 # App Router: landing, (auth) pages, (app) protected area, API routes
-components/ui/        # shadcn/ui components
-lib/
-  db/                # Drizzle schema, client, and repositories
-  clerk/             # webhook event dispatch + lazy user creation
-  env.server.ts      # server env (Zod-validated, server-only)
-  env.client.ts      # public env (Zod-validated)
-drizzle/             # generated migrations
-docs/                # PRD, architecture, data model, design, phase plans
-```
+- Streaming UX for the drafter (watch claims structure themselves in real time).
+- Multi-ticker / basket theses and cross-thesis health.
+- Source-credibility weighting in the evaluator.
+- Alerts on sharp health drops, not just the weekly digest.
+- Backtesting: replay a thesis against historical evidence windows.
