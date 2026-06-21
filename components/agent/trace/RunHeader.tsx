@@ -11,7 +11,7 @@ export function RunHeader({ run, ticker }: { run: AgentRun; ticker: string }) {
     <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-zinc-200 bg-white/90 py-4 backdrop-blur">
       <div>
         <h1 className="text-lg font-semibold tracking-tight text-zinc-900">Analysis run</h1>
-        <div className="mt-1.5 flex items-center gap-3 text-xs text-zinc-500">
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
           <span className="rounded-[5px] bg-zinc-100 px-1.5 py-0.5 font-mono font-semibold text-zinc-600">{ticker}</span>
           <span>
             <span className="font-mono text-zinc-700">{run.iterationsUsed}</span> iterations
