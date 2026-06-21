@@ -10,6 +10,12 @@ import { DemoClaimList } from "@/components/demo/DemoClaimList";
 import { HealthBar } from "@/components/agent/HealthBar";
 import { HealthChart } from "@/components/theses/HealthChart";
 
+// The demo is a public, live-data page (re-seedable). Render it at request time
+// so the build never connects to the database and the page always reflects the
+// current seeded state. Every other DB-reading page is dynamic via Clerk auth;
+// this is the only public one, so it needs the marker explicitly.
+export const dynamic = "force-dynamic";
+
 export default async function DemoPage() {
   const thesis = await getDemoThesis();
   if (!thesis) {
