@@ -55,7 +55,7 @@ export default async function DemoPage() {
         </span>
       </div>
 
-      <div className="mt-8 grid grid-cols-[1fr_280px] gap-8">
+      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_280px]">
         <div>
           <DemoClaimList claims={thesis.claims} />
           <div className="mt-10 border-t border-zinc-100 pt-6">
