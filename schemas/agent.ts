@@ -4,9 +4,11 @@ import { z } from "zod";
 // here (zod only). The drift-guard test asserts they match.
 export const AGENT_RUN_STATUSES = ["queued", "running", "complete", "partial", "failed"] as const;
 export const AGENT_RUN_TRIGGERS = ["manual", "scheduled"] as const;
+export const AGENT_RUN_MODES = ["research", "challenge"] as const;
 
 export type AgentRunStatus = (typeof AGENT_RUN_STATUSES)[number];
 export type AgentRunTrigger = (typeof AGENT_RUN_TRIGGERS)[number];
+export type AgentRunMode = (typeof AGENT_RUN_MODES)[number];
 
 export const FORM_TYPES = ["10-K", "10-Q", "8-K"] as const;
 

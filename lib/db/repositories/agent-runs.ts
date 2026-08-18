@@ -2,16 +2,22 @@ import "server-only";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { agentRuns, theses, type AgentRun } from "@/lib/db/schema";
-import type { AgentRunStatus, AgentRunTrigger } from "@/schemas/agent";
+import type { AgentRunStatus, AgentRunTrigger, AgentRunMode } from "@/schemas/agent";
 
 export async function createAgentRun(
   thesisId: string,
   trigger: AgentRunTrigger,
-  digestBatchId?: string,
+  opts: { mode?: AgentRunMode; digestBatchId?: string } = {},
 ): Promise<AgentRun> {
   const [row] = await db
     .insert(agentRuns)
-    .values({ thesisId, trigger, status: "queued", digestBatchId: digestBatchId ?? null })
+    .values({
+      thesisId,
+      trigger,
+      status: "queued",
+      mode: opts.mode ?? "research",
+      digestBatchId: opts.digestBatchId ?? null,
+    })
     .returning();
   return row;
 }
