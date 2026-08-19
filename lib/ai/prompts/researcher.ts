@@ -1,3 +1,5 @@
+import type { PositionDirection } from "@/schemas/thesis";
+
 export const systemPrompt = `You are a research agent for an investment-thesis tracker. Your job is to GATHER evidence relevant to a thesis and its claims — not to judge whether the thesis is right. A separate evaluator does that.
 
 Tools:
@@ -13,7 +15,7 @@ How to work:
 - If you cannot find relevant evidence, call return_result with an empty list. Do not invent sources.`;
 
 export function buildResearchTask(
-  thesis: { title: string; ticker: string; positionDirection: string; timeHorizon: string },
+  thesis: { title: string; ticker: string; positionDirection: PositionDirection; timeHorizon: string },
   claims: { statement: string }[],
   seenSourceUrls: string[],
 ): string {
@@ -56,7 +58,7 @@ How to work:
 - Be efficient: a handful of well-chosen sources beats exhaustive browsing. When you have enough, call return_result.`;
 
 export function buildChallengeTask(
-  thesis: { title: string; ticker: string; positionDirection: string; timeHorizon: string },
+  thesis: { title: string; ticker: string; positionDirection: PositionDirection; timeHorizon: string },
   claims: { statement: string }[],
   seenSourceUrls: string[],
 ): string {

@@ -5,6 +5,7 @@ import { toAnthropicTools } from "@/lib/ai/client";
 import { TOOLS, executeToolCallSafely } from "@/lib/ai/tools/registry";
 import type { ToolContext, ToolResult } from "@/lib/ai/tools/types";
 import { ReturnResultSchema, type EvidenceItem, type AgentRunMode } from "@/schemas/agent";
+import type { PositionDirection } from "@/schemas/thesis";
 import {
   systemPrompt,
   buildResearchTask,
@@ -47,7 +48,7 @@ export type ResearcherResult = {
 type AnyMessage = Anthropic.Message;
 
 export async function runResearcher(
-  thesis: { title: string; ticker: string; positionDirection: string; timeHorizon: string },
+  thesis: { title: string; ticker: string; positionDirection: PositionDirection; timeHorizon: string },
   claims: { statement: string }[],
   seenSourceUrls: string[],
   deps: ResearcherDeps,

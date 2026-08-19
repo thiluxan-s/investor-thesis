@@ -30,7 +30,7 @@ function deps(responses: MockMessage[], overrides: Partial<ResearcherDeps> = {})
   };
 }
 
-const thesis = { title: "T", ticker: "NVDA", positionDirection: "long", timeHorizon: "months" };
+const thesis = { title: "T", ticker: "NVDA", positionDirection: "long" as const, timeHorizon: "months" };
 const claims = [{ statement: "Revenue grows" }];
 
 describe("runResearcher", () => {
@@ -98,7 +98,7 @@ describe("runResearcher challenge mode", () => {
 
 describe("buildChallengeTask", () => {
   it("names the position direction so the model inverts for shorts", () => {
-    const shortThesis = { ...thesis, positionDirection: "short" };
+    const shortThesis = { ...thesis, positionDirection: "short" as const };
     expect(buildChallengeTask(shortThesis, claims, [])).toContain("BETTER than this short thesis assumes");
     expect(buildChallengeTask(thesis, claims, [])).toContain("WORSE than this long thesis assumes");
   });
