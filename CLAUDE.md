@@ -97,10 +97,12 @@ lib/
     repositories/             # All DB access goes through repositories
   ai/
     client.ts                 # Anthropic client wrapper
-    agents/                   # Each agent (researcher, evaluator, drafter) in its own file
-      researcher.ts
+    agents/                   # Each agent role in its own file
+      researcher.ts           # the tool loop (research + challenge modes)
       evaluator.ts
       drafter.ts
+      summarizer.ts           # Phase 5 — weekly digest blurbs
+      challenger.ts           # Phase 7a — the case against a thesis
     tools/                    # Tool definitions for the researcher agent
       web-search.ts
       web-fetch.ts
@@ -155,7 +157,8 @@ docs/
 
 This is the highest-value section of this document. Read carefully.
 
-- **Three agent roles, clearly separated.** "Researcher" agent runs a tool loop to gather evidence. "Evaluator" model (one-shot, no loop) judges whether evidence strengthens or weakens a claim. "Drafter" model (one-shot, no loop) takes a user's free-text reasoning paragraph and structures it into candidate claims (Phase 6 feature). They live in `lib/ai/agents/researcher.ts`, `evaluator.ts`, and `drafter.ts` respectively. Don't merge them — the separation is intentional. See `ARCHITECTURE.md` for the reasoning.
+- **Five agent roles, clearly separated.** One loop, four one-shots. "Researcher" (`researcher.ts`) runs a tool loop to gather evidence; it has two modes — `research` gathers evidence bearing on a thesis, `challenge` hunts for evidence against it — and mode selects the prompt pair only, never the loop body. "Evaluator" (`evaluator.ts`) judges whether one piece of evidence strengthens or weakens one claim. "Drafter" (`drafter.ts`) structures a user's free-text paragraph into candidate claims (Phase 6). "Summarizer" (`summarizer.ts`) writes the weekly digest blurbs (Phase 5). "Challenger" (`challenger.ts`) writes the case against a thesis from evidence the evaluator already scored as weakening (Phase 7a). Don't merge them — the separation is intentional. See `ARCHITECTURE.md` for the reasoning.
+- **The evaluator is deliberately mode-blind.** It is never told whether evidence came from a research or a challenge run. That is one of three layers stopping challenge mode from inflating its own verdicts (the other two: the prompt permits "the thesis held up" as a correct answer, and the challenger may only cite evidence that survived evaluation). Don't pass `mode` into the evaluator's prompt or its task inputs.
 - **The agent loop is hand-written.** No frameworks. The loop lives in `lib/ai/agents/researcher.ts` as a clear `while` loop with explicit stop conditions: max iterations, max tokens spent, model returns final answer, or budget exceeded. Surface every iteration's state (assistant message, tool calls, tool results) for storage so the user can see the trace.
 - **Tool definitions are strict.** Every tool has a Zod schema for its input. We validate tool calls against the schema before executing — if Claude returns malformed args (rare but happens), we return a tool error message and let the loop continue rather than crashing.
 - **All AI structured outputs use tool use.** Force structured outputs by defining a single "return_result" tool with a Zod-derived schema. Never parse free-form text as JSON when you can avoid it.

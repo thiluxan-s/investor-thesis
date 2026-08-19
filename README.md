@@ -116,6 +116,7 @@ Delivered in phases, each a working, reviewable slice:
 - [x] **Phase 4 — Evaluator & health** — per-claim scoring and thesis-health-over-time
 - [x] **Phase 5 — Schedule & digest** — weekly Inngest cron + Resend email summaries
 - [x] **Phase 6 — Drafting, demo, polish & ship** — paragraph→claims drafter, public read-only demo, landing page, hardening, and production deploy
+- [ ] **Phase 7 — Challenge the thesis** — point the same loop *against* a thesis and have a challenger agent argue the case for why it's wrong. Engine shipped (7a); the per-claim drill-down and challenge trigger are next (7b).
 
 ## What I'd build next
 

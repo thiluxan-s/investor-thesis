@@ -81,6 +81,14 @@ node --conditions=react-server --env-file=.env.local --import tsx \
 
 — then capture the real messages/tools/evaluations/brief into the four fixture files, and delete the warning. `/demo` is the only path a recruiter walks; it cannot show fabricated content passed off as agent output.
 
+## What 7a leaves wired but untriggered
+
+Nothing in the app sends `mode: "challenge"` yet — the trigger is 7b's. Two things the trigger must get right:
+
+**It must send `scenario: "nvda-challenge"` alongside the mode.** `triggerAgentRun` (`app/(app)/theses/agent-actions.ts`) currently hardcodes `scenario: "nvda-happy-path"` for every run. Under `USE_AI_FIXTURES`, a challenge run carrying that scenario replays the *research* fixture's messages through the challenge loop — a dev run that looks like it worked and didn't. It won't crash: `evaluate-run` falls back to the `nvda-challenge` scenario when the requested one has no `challenge-brief.json`, so the failure is quiet rather than loud. That fallback covers the brief step only, not the researcher's own fixture reader.
+
+**The `mode` argument needs Zod validation at the server-action boundary**, like every other action input, and `createAgentRun(thesisId, trigger, { mode })` takes it through the options object.
+
 ---
 
-7b (challenge trigger, brief rendering, the per-claim drill-down, `/demo` parity, design pass) gets its own plan after 7a merges.
+7b (challenge trigger, brief rendering, the per-claim drill-down, `/demo` parity, design pass) gets its own plan. Read the design spec's UI section as a starting point, not a finished design — it was written before 7a shipped, and the health-split and `claimOrdinal` constraints above are firmer than anything it says about layout.
