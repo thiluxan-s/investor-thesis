@@ -17,7 +17,8 @@ const tools = [
 export type BriefEvidenceItem = {
   evidenceId: string;
   claimId: string;
-  claimOrdinal: number;
+  // Every claim this evidence weakens — one item can weaken several.
+  claimOrdinals: number[];
   extractedText: string;
   sourceDomain?: string;
   confidence: number;

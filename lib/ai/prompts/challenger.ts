@@ -19,20 +19,26 @@ Rules:
 export function buildChallengeBriefTask(
   thesis: { title: string; ticker: string; positionDirection: string; timeHorizon: string },
   claims: { ordinal: number; statement: string }[],
-  items: { extractedText: string; sourceDomain?: string; claimOrdinal: number; confidence: number; ageDays: number }[],
+  items: { extractedText: string; sourceDomain?: string; claimOrdinals: number[]; confidence: number; ageDays: number }[],
 ): string {
   const claimList = claims.map((c, i) => `${i}. ${c.statement}`).join("\n");
-  // Evidence carries the claim's raw ordinal, but the claim list above is numbered by
+  // Evidence carries the claims' raw ordinals, but the claim list above is numbered by
   // array position — the two diverge once a claim has been deleted (deleteClaim does
   // not renumber survivors). Look up the list position so "weakens claim N" always
-  // points at a claim that actually appears at index N above; omit the segment rather
-  // than print a stale ordinal if the lookup somehow misses.
+  // points at a claim that actually appears at index N above; drop any ordinal that
+  // doesn't resolve rather than print a stale one, and omit the whole segment if none
+  // of an item's ordinals resolve.
   const positionByOrdinal = new Map(claims.map((c, i) => [c.ordinal, i]));
   const evidenceList = items
     .map((it, i) => {
-      const position = positionByOrdinal.get(it.claimOrdinal);
+      const positions = it.claimOrdinals
+        .map((o) => positionByOrdinal.get(o))
+        .filter((p): p is number => p !== undefined)
+        .sort((a, b) => a - b);
       const segments = [
-        ...(position !== undefined ? [`weakens claim ${position}`] : []),
+        ...(positions.length
+          ? [`weakens claim${positions.length > 1 ? "s" : ""} ${positions.join(", ")}`]
+          : []),
         `confidence ${it.confidence.toFixed(2)}`,
         `${it.ageDays} days old`,
         ...(it.sourceDomain ? [`source: ${it.sourceDomain}`] : []),

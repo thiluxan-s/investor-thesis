@@ -25,7 +25,7 @@ export async function writeBriefForRun(input: {
   const items: BriefEvidenceItem[] = selected.map((s) => ({
     evidenceId: s.evidenceId,
     claimId: s.claimId,
-    claimOrdinal: s.claimOrdinal,
+    claimOrdinals: s.claimOrdinals,
     extractedText: s.extractedText,
     sourceDomain: s.sourceDomain,
     confidence: s.confidence,

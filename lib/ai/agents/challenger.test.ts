@@ -21,8 +21,8 @@ const claims = [
   { id: "claim-b", ordinal: 1, statement: "CUDA is a durable moat" },
 ];
 const items: BriefEvidenceItem[] = [
-  { evidenceId: "ev-1", claimId: "claim-a", claimOrdinal: 0, extractedText: "Orders slipped.", confidence: 0.7, ageDays: 5 },
-  { evidenceId: "ev-2", claimId: "claim-b", claimOrdinal: 1, extractedText: "Rival toolkit shipped.", confidence: 0.6, ageDays: 12 },
+  { evidenceId: "ev-1", claimId: "claim-a", claimOrdinals: [0], extractedText: "Orders slipped.", confidence: 0.7, ageDays: 5 },
+  { evidenceId: "ev-2", claimId: "claim-b", claimOrdinals: [1], extractedText: "Rival toolkit shipped.", confidence: 0.6, ageDays: 12 },
 ];
 
 const good = {
@@ -118,10 +118,34 @@ describe("writeChallengeBrief", () => {
       { id: "claim-c", ordinal: 2, statement: "Third" },
     ];
     const gappedItems = [
-      { evidenceId: "ev-1", claimId: "claim-c", claimOrdinal: 2, extractedText: "text", confidence: 0.5, ageDays: 3 },
+      { evidenceId: "ev-1", claimId: "claim-c", claimOrdinals: [2], extractedText: "text", confidence: 0.5, ageDays: 3 },
     ];
     const task = buildChallengeBriefTask(thesis, gappedClaims, gappedItems);
     expect(task).toContain("weakens claim 1");
     expect(task).not.toContain("weakens claim 2");
+  });
+
+  it("renders every claim an evidence item weakens, as list positions", () => {
+    const threeClaims = [
+      { id: "claim-a", ordinal: 0, statement: "First" },
+      { id: "claim-b", ordinal: 1, statement: "Second" },
+      { id: "claim-c", ordinal: 3, statement: "Fourth (claim 2 was deleted)" },
+    ];
+    const multiItems: BriefEvidenceItem[] = [
+      { evidenceId: "ev-1", claimId: "claim-a", claimOrdinals: [0, 3], extractedText: "Two claims.", confidence: 0.8, ageDays: 4 },
+      { evidenceId: "ev-2", claimId: "claim-b", claimOrdinals: [1], extractedText: "One claim.", confidence: 0.6, ageDays: 9 },
+    ];
+    const task = buildChallengeBriefTask(thesis, threeClaims, multiItems);
+    expect(task).toContain("[0] weakens claims 0, 2");
+    expect(task).toContain("[1] weakens claim 1");
+  });
+
+  it("omits the claim segment when none of an item's ordinals resolve", () => {
+    const orphanItems: BriefEvidenceItem[] = [
+      { evidenceId: "ev-1", claimId: "gone", claimOrdinals: [7, 9], extractedText: "Orphaned.", confidence: 0.4, ageDays: 2 },
+    ];
+    const task = buildChallengeBriefTask(thesis, claims, orphanItems);
+    expect(task).not.toContain("weakens claim");
+    expect(task).toContain("[0] confidence 0.40");
   });
 });
