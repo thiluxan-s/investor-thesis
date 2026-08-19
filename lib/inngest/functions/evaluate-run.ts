@@ -6,14 +6,16 @@ import { listEvidenceForRun } from "@/lib/db/repositories/evidence";
 import { getSourcesByIds } from "@/lib/db/repositories/sources";
 import { createAnthropicClient, type AnthropicLike } from "@/lib/ai/client";
 import { EvaluationFixtureReader } from "@/lib/ai/evaluation-fixtures";
+import { ChallengeBriefFixtureReader } from "@/lib/ai/challenge-brief-fixtures";
 import { evaluateMatrix, recomputeAndPersist } from "@/lib/ai/evaluate-pipeline";
+import { writeBriefForRun } from "@/lib/ai/challenge-pipeline";
 import { recordBatchProgress } from "@/lib/db/repositories/digest-batches";
 import { serverEnv } from "@/lib/env.server";
 
 export const evaluateRun = inngest.createFunction(
   { id: "evaluate-run", retries: 2, triggers: [{ event: "agent-run.completed" }] },
   async ({ event, step }) => {
-    const { agentRunId, thesisId, userId, scenario, batchId } = event.data as AgentRunCompleted["data"];
+    const { agentRunId, thesisId, userId, scenario, batchId, mode } = event.data as AgentRunCompleted["data"];
 
     async function settleBatch(): Promise<void> {
       if (!batchId) return;
@@ -31,17 +33,62 @@ export const evaluateRun = inngest.createFunction(
       await settleBatch();
       return { status: "skipped" as const };
     }
+
+    const useFixtures = serverEnv.USE_AI_FIXTURES;
+    // One real Anthropic client per invocation — the evaluator and (on a
+    // challenge run) the brief step reuse it rather than each building their
+    // own. Fixture-backed clients stay per-consumer below since they read
+    // different files (evaluations.json vs. challenge-brief.json).
+    const realClient: AnthropicLike | null = useFixtures
+      ? null
+      : createAnthropicClient(serverEnv.ANTHROPIC_API_KEY!);
+
+    // Writes a challenge brief for `challenge`-mode runs. Called on BOTH exits
+    // below (no-evidence and evaluated): the brief argues from every weakening
+    // link across the thesis (listWeakeningLinksForThesis), not just what this
+    // run collected, so a well-covered thesis whose researcher happens to find
+    // nothing new this time should still show its standing case, not go silent.
+    // A research run returns immediately — it never touches the fixture reader
+    // or makes a brief-related API call.
+    async function maybeWriteBrief(t: {
+      title: string;
+      ticker: string;
+      positionDirection: string;
+      timeHorizon: string;
+      claims: { id: string; ordinal: number; statement: string }[];
+    }): Promise<void> {
+      if (mode !== "challenge") return;
+      const briefReader = useFixtures ? new ChallengeBriefFixtureReader(scenario ?? "nvda-challenge") : null;
+      const briefClient: AnthropicLike = useFixtures
+        ? { createMessage: async () => briefReader!.next() as Anthropic.Message }
+        : realClient!;
+      await step.run("write-challenge-brief", () =>
+        writeBriefForRun({
+          thesisId,
+          agentRunId,
+          thesis: {
+            title: t.title,
+            ticker: t.ticker,
+            positionDirection: t.positionDirection,
+            timeHorizon: t.timeHorizon,
+          },
+          claims: t.claims.map((c) => ({ id: c.id, ordinal: c.ordinal, statement: c.statement })),
+          client: briefClient,
+        }),
+      );
+    }
+
     const evidence = await step.run("load-evidence", () => listEvidenceForRun(agentRunId));
     if (evidence.length === 0) {
+      await maybeWriteBrief(thesis);
       await settleBatch();
       return { status: "no-evidence" as const };
     }
 
-    const useFixtures = serverEnv.USE_AI_FIXTURES;
     const reader = useFixtures ? new EvaluationFixtureReader(scenario ?? "nvda-happy-path") : null;
     const client: AnthropicLike = useFixtures
       ? { createMessage: async () => reader!.next() as Anthropic.Message }
-      : createAnthropicClient(serverEnv.ANTHROPIC_API_KEY!);
+      : realClient!;
 
     const srcRows = await step.run("load-sources", () =>
       getSourcesByIds([...new Set(evidence.map((e) => e.sourceId))]),
@@ -64,6 +111,10 @@ export const evaluateRun = inngest.createFunction(
         claims: thesis.claims.map((c) => ({ id: c.id, ordinal: c.ordinal, statement: c.statement, category: c.category })),
       }),
     );
+
+    // Challenge runs get a brief once every piece of evidence has a verdict, so
+    // the challenger can only argue from what the evaluator actually scored.
+    await maybeWriteBrief(thesis);
 
     await settleBatch();
     return { status: "evaluated" as const, pairs: thesis.claims.length * evidence.length };

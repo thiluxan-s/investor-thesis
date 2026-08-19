@@ -1,11 +1,12 @@
 import { Inngest } from "inngest";
+import type { AgentRunMode } from "@/schemas/agent";
 
 export type AgentRunRequested = {
-  data: { agentRunId: string; thesisId: string; userId: string; scenario?: string; batchId?: string };
+  data: { agentRunId: string; thesisId: string; userId: string; scenario?: string; batchId?: string; mode?: AgentRunMode };
 };
 
 export type AgentRunCompleted = {
-  data: { agentRunId: string; thesisId: string; userId: string; scenario?: string; batchId?: string };
+  data: { agentRunId: string; thesisId: string; userId: string; scenario?: string; batchId?: string; mode?: AgentRunMode };
 };
 
 export type ScheduledRunsRequested = {

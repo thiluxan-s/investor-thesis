@@ -29,7 +29,7 @@ import type { ToolContext, ToolResult } from "@/lib/ai/tools/types";
 import { FixtureReader, FIXTURE_ROOT } from "@/lib/ai/fixtures";
 import { hostnameOf, sha256 } from "@/lib/ai/url";
 import type { Anthropic } from "@anthropic-ai/sdk";
-import { listLinksForClaim, listWeakeningLinksForThesis } from "@/lib/db/repositories/claim-evidence-links";
+import { listLinksForClaim } from "@/lib/db/repositories/claim-evidence-links";
 import { listSnapshotsForThesis } from "@/lib/db/repositories/health-snapshots";
 import { EvaluationFixtureReader } from "@/lib/ai/evaluation-fixtures";
 import { evaluateMatrix, recomputeAndPersist } from "@/lib/ai/evaluate-pipeline";
@@ -38,45 +38,10 @@ import { summarize } from "@/lib/ai/agents/summarizer";
 import { DigestFixtureReader } from "@/lib/ai/digest-fixtures";
 import { getSourcesByIds } from "@/lib/db/repositories/sources";
 import { ChallengeBriefFixtureReader } from "@/lib/ai/challenge-brief-fixtures";
-import { writeChallengeBrief, type BriefEvidenceItem } from "@/lib/ai/agents/challenger";
-import { selectBriefEvidence } from "@/lib/challenge/select";
-import { upsertBrief, getBriefForRun } from "@/lib/db/repositories/challenge-briefs";
-import { CHALLENGER_PROMPT_VERSION } from "@/lib/ai/prompts/challenger";
+import { getBriefForRun } from "@/lib/db/repositories/challenge-briefs";
+import { writeBriefForRun } from "@/lib/ai/challenge-pipeline";
+import type { ChallengeBriefPoint } from "@/lib/ai/schemas/challenge-brief";
 import type { AgentRunMode } from "@/schemas/agent";
-
-// Selects weakening evidence for the thesis, runs the challenger, and persists
-// a challenge_briefs row. Mirrors what the (not-yet-wired) Inngest step does,
-// but sourced from a fixture-backed client so it costs nothing offline.
-async function writeBriefForRun(
-  thesisId: string,
-  agentRunId: string,
-  thesis: { title: string; ticker: string; positionDirection: string; timeHorizon: string },
-  claims: { id: string; ordinal: number; statement: string }[],
-  client: AnthropicLike,
-): Promise<{ headline: string; pointCount: number } | null> {
-  const links = await listWeakeningLinksForThesis(thesisId);
-  const selected = selectBriefEvidence(links, new Date());
-  const items: BriefEvidenceItem[] = selected.map((s) => ({
-    evidenceId: s.evidenceId,
-    claimId: s.claimId,
-    claimOrdinal: s.claimOrdinal,
-    extractedText: s.extractedText,
-    sourceDomain: s.sourceDomain,
-    confidence: s.confidence,
-    ageDays: s.ageDays,
-  }));
-  const result = await writeChallengeBrief(thesis, claims, items, { client });
-  if (!result) return null;
-  await upsertBrief({
-    agentRunId,
-    thesisId,
-    headline: result.headline,
-    summary: result.summary,
-    points: result.points,
-    promptVersion: CHALLENGER_PROMPT_VERSION,
-  });
-  return { headline: result.headline, pointCount: result.points.length };
-}
 
 async function main() {
   const scenario = process.argv[2] ?? "nvda-happy-path";
@@ -84,7 +49,11 @@ async function main() {
 
   const [thesis] = await db.select().from(theses).limit(1);
   if (!thesis) throw new Error("Seed a thesis first (create one in the app).");
-  const cs = await db.select().from(claimsTable).where(eq(claimsTable.thesisId, thesis.id));
+  const cs = await db
+    .select()
+    .from(claimsTable)
+    .where(eq(claimsTable.thesisId, thesis.id))
+    .orderBy(claimsTable.ordinal);
 
   const run = await createAgentRun(thesis.id, "manual", { mode });
   await markRunning(run.id);
@@ -184,16 +153,27 @@ async function main() {
       createMessage: async () => briefReader.next() as Anthropic.Message,
     };
     const briefClaims = cs.map((c) => ({ id: c.id, ordinal: c.ordinal, statement: c.statement }));
-    brief = await writeBriefForRun(
-      thesis.id,
-      run.id,
-      { title: thesis.title, ticker: thesis.ticker, positionDirection: thesis.positionDirection, timeHorizon: thesis.timeHorizon },
-      briefClaims,
-      briefClient,
-    );
-    const stored = await getBriefForRun(run.id);
-    if (!stored) throw new Error("Expected a challenge_briefs row after writeBriefForRun, found none.");
-    console.log(`Challenge brief: "${stored.headline}" (${brief?.pointCount ?? 0} points)`);
+    const { written, reason } = await writeBriefForRun({
+      thesisId: thesis.id,
+      agentRunId: run.id,
+      thesis: {
+        title: thesis.title,
+        ticker: thesis.ticker,
+        positionDirection: thesis.positionDirection,
+        timeHorizon: thesis.timeHorizon,
+      },
+      claims: briefClaims,
+      client: briefClient,
+    });
+    if (written) {
+      const stored = await getBriefForRun(run.id);
+      if (!stored) throw new Error("Expected a challenge_briefs row after writeBriefForRun, found none.");
+      const points = stored.points as ChallengeBriefPoint[];
+      brief = { headline: stored.headline, pointCount: points.length };
+      console.log(`Challenge brief: "${stored.headline}" (${points.length} points)`);
+    } else {
+      console.log(`Challenge brief not written: ${reason}`);
+    }
   }
 
   console.log(

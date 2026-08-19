@@ -17,7 +17,8 @@ import { hostnameOf, sha256 } from "@/lib/ai/url";
 export const runAgent = inngest.createFunction(
   { id: "run-agent", retries: 2, triggers: [{ event: "agent.run-requested" }] },
   async ({ event, step }) => {
-    const { agentRunId, thesisId, userId, scenario, batchId } = event.data as AgentRunRequested["data"];
+    const { agentRunId, thesisId, userId, scenario, batchId, mode } = event.data as AgentRunRequested["data"];
+    const runMode = mode ?? "research";
 
     // Count this scheduled run against its digest batch exactly once, and fire
     // the digest if it was the last one. No-op for manual runs (no batchId). Its
@@ -101,6 +102,7 @@ export const runAgent = inngest.createFunction(
       seen,
       { client, toolContext, persist, maxIterations: 12, maxTokens: 100_000, toolRunner },
       scenario ?? "nvda-happy-path",
+      runMode,
     );
 
     await incrementRunTotals(agentRunId, {
@@ -115,14 +117,17 @@ export const runAgent = inngest.createFunction(
       { error: result.reason },
     );
 
-    if (result.status !== "failed" && result.evidenceCount > 0) {
-      // Evidence path: evaluation runs next and will record batch progress when done.
+    if (result.status !== "failed" && (result.evidenceCount > 0 || runMode === "challenge")) {
+      // Evidence path (or a challenge run, which may still owe a brief even with
+      // zero new evidence — the brief argues from the thesis's standing weakening
+      // evidence, not just this run's): evaluation runs next and will record batch
+      // progress when done.
       await step.sendEvent("emit-agent-run-completed", {
         name: "agent-run.completed",
-        data: { agentRunId, thesisId, userId, scenario, batchId },
+        data: { agentRunId, thesisId, userId, scenario, batchId, mode: runMode },
       });
     } else {
-      // No-evidence (or failed) scheduled run: no evaluation will fire, so settle here.
+      // No-evidence research run (or failed run): no evaluation will fire, so settle here.
       await settleBatch();
     }
 
