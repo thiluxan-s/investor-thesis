@@ -12,6 +12,25 @@ import { writeBriefForRun } from "@/lib/ai/challenge-pipeline";
 import { recordBatchProgress } from "@/lib/db/repositories/digest-batches";
 import { serverEnv } from "@/lib/env.server";
 
+// The one scenario that ships a challenge-brief.json.
+const CHALLENGE_FIXTURE_SCENARIO = "nvda-challenge";
+
+// A challenge run can arrive carrying any scenario — today's trigger hardcodes
+// "nvda-happy-path" — and most scenarios have no challenge-brief.json, whose
+// reader throws on construction. Degrade to the challenge scenario, then to
+// skipping the brief, rather than burning three step retries on a dev fixture
+// that was never going to exist.
+function openBriefFixture(requested: string): ChallengeBriefFixtureReader | null {
+  for (const scenario of new Set([requested, CHALLENGE_FIXTURE_SCENARIO])) {
+    try {
+      return new ChallengeBriefFixtureReader(scenario);
+    } catch {
+      // Try the fallback scenario next; a missing fixture is not a run failure.
+    }
+  }
+  return null;
+}
+
 export const evaluateRun = inngest.createFunction(
   { id: "evaluate-run", retries: 2, triggers: [{ event: "agent-run.completed" }] },
   async ({ event, step }) => {
@@ -58,7 +77,8 @@ export const evaluateRun = inngest.createFunction(
       claims: { id: string; ordinal: number; statement: string }[];
     }): Promise<void> {
       if (mode !== "challenge") return;
-      const briefReader = useFixtures ? new ChallengeBriefFixtureReader(scenario ?? "nvda-challenge") : null;
+      const briefReader = useFixtures ? openBriefFixture(scenario ?? CHALLENGE_FIXTURE_SCENARIO) : null;
+      if (useFixtures && !briefReader) return;
       const briefClient: AnthropicLike = useFixtures
         ? { createMessage: async () => briefReader!.next() as Anthropic.Message }
         : realClient!;
@@ -80,8 +100,13 @@ export const evaluateRun = inngest.createFunction(
 
     const evidence = await step.run("load-evidence", () => listEvidenceForRun(agentRunId));
     if (evidence.length === 0) {
-      await maybeWriteBrief(thesis);
+      // settleBatch BEFORE the brief, on every exit: maybeWriteBrief can throw
+      // (API error, missing fixture), and once retries are exhausted the whole
+      // function fails — leaving completedRuns short of expectedRuns forever, so
+      // that week's digest never sends. The digest never reads the brief, so a
+      // batch settled first loses nothing; a batch settled second can be stranded.
       await settleBatch();
+      await maybeWriteBrief(thesis);
       return { status: "no-evidence" as const };
     }
 
@@ -112,11 +137,11 @@ export const evaluateRun = inngest.createFunction(
       }),
     );
 
-    // Challenge runs get a brief once every piece of evidence has a verdict, so
-    // the challenger can only argue from what the evaluator actually scored.
-    await maybeWriteBrief(thesis);
-
+    // Batch settling first (see the no-evidence exit above), then the brief:
+    // challenge runs get one once every piece of evidence has a verdict, so the
+    // challenger can only argue from what the evaluator actually scored.
     await settleBatch();
+    await maybeWriteBrief(thesis);
     return { status: "evaluated" as const, pairs: thesis.claims.length * evidence.length };
   },
 );
