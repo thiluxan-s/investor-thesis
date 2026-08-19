@@ -18,7 +18,7 @@
   {
     "content": [
       { "type": "thinking", "thinking": "There's also a competitor toolkit release with migration paths — that bears directly on the no-real-competitor claim. Reading it." },
-      { "type": "tool_use", "id": "tu_fetch_2", "name": "web_fetch", "input": { "url": "https://www.theinformation.com/articles/rival-ai-toolkit-migration-paths" } }
+      { "type": "tool_use", "id": "tu_fetch_2", "name": "web_fetch", "input": { "url": "https://www.semianalysis.com/articles/rival-ai-toolkit-migration-paths" } }
     ],
     "stop_reason": "tool_use",
     "usage": { "input_tokens": 1600, "output_tokens": 98 }
@@ -40,7 +40,7 @@
               "extracted_text": "Nvidia's gross margin fell sequentially for the second straight quarter even as revenue hit a new record, as pricing pressure in the accelerator market builds. Management attributed part of the decline to a shifting product mix and higher input costs."
             },
             {
-              "source_url": "https://www.theinformation.com/articles/rival-ai-toolkit-migration-paths",
+              "source_url": "https://www.semianalysis.com/articles/rival-ai-toolkit-migration-paths",
               "title": "Rival ships AI accelerator toolkit with published migration paths",
               "snippet": "A competing chipmaker released a software toolkit with documented migration tooling from Nvidia's stack",
               "claim_indices": [1],
