@@ -24,7 +24,9 @@
   │  Neon   │   │ Inngest  │  │ Resend   │  │  Anthropic API │
   │Postgres │   │ (agent   │  │ (weekly  │  │  - Researcher  │
   │+pgvector│   │  runs +  │  │  digest) │  │  - Evaluator   │
-  │+Drizzle │   │  cron)   │  │          │  │  - Embeddings  │
+  │+Drizzle │   │  cron)   │  │          │  │  - Drafter     │
+  │         │   │          │  │          │  │  - Summarizer  │
+  │         │   │          │  │          │  │  - Challenger  │
   └─────────┘   └────┬─────┘  └──────────┘  └────────────────┘
                      │
                      ▼
@@ -61,13 +63,22 @@
    - When loop completes (or hits stop condition): flips AgentRun to 'complete' or 'failed'
                 │
                 ▼
-4. EVALUATOR runs as a separate Inngest function, triggered by 'evidence.collected'
+4. EVALUATOR runs as a separate Inngest function, triggered by 'agent-run.completed'
    - For each new evidence row, evaluates against each thesis claim
    - Writes claim_evidence_links with impact (strengthens/neutral/weakens) + reasoning
+   - Recomputes and persists claim + thesis health for the run
                 │
                 ▼
-5. UI polls AgentRun status every 3s while 'running'; updates when 'complete'
+5. CHALLENGER runs in the same function, only when mode === 'challenge', and
+   (on this path) only AFTER health is recomputed
+   - Loads every weakening link across the thesis (not just this run's evidence)
+   - Writes a challenge_briefs row citing only evidence the evaluator scored
+                │
+                ▼
+6. UI polls AgentRun status every 3s while 'running'; updates when 'complete'
 ```
+
+**Run modes.** `AgentRunRequested`/`AgentRunCompleted` carry an optional `mode: 'research' | 'challenge'` (defaults to `'research'`). The researcher only consumes `mode`, to pick its prompt pair (normal evidence-gathering vs. actively hunting for counter-evidence); `run-agent` is what forwards it unchanged onto the completion event. `run-agent` also emits that completion event for a challenge run even when the researcher found zero new evidence this time, because the brief argues from the thesis's *standing* weakening evidence (every prior `weakens` link), not just what this run collected — a well-covered thesis whose researcher surfaces nothing new should still show its case, not go silent. `evaluate-run` is the only place that branches on `mode`, and the brief step runs on both of its exits (no-new-evidence and evaluated) — on the evaluated exit only after `recompute-health`, while the no-new-evidence exit returns before `recompute-health` ever runs, there being nothing new to score. The challenger may cite only evidence the evaluator has already scored as weakening, so running it any earlier — inside `run-agent`, or before evaluation finishes — would mean arguing from unscored material. The evaluator itself never sees `mode`; it stays mode-blind by design (see "Why challenge mode doesn't fabricate negativity" below).
 
 ### Flow 2: Weekly scheduled run + digest
 
@@ -93,21 +104,25 @@
 
 This section is the most important in the document. Read it carefully.
 
-### Three agents, separate concerns
+### Five agents, separate concerns
 
-**Researcher** (`lib/ai/agents/researcher.ts`) is a loop. Its job is to find new evidence relevant to a thesis. It has tools to search the web, fetch pages, and look up SEC filings. It does *not* evaluate whether evidence strengthens or weakens a claim — that's not its job. Its output is a list of structured evidence objects, each tagged with which claim(s) it's relevant to.
+**Researcher** (`lib/ai/agents/researcher.ts`) is a loop. Its job is to find new evidence relevant to a thesis. It has tools to search the web, fetch pages, and look up SEC filings. It does *not* evaluate whether evidence strengthens or weakens a claim — that's not its job. Its output is a list of structured evidence objects, each tagged with which claim(s) it's relevant to. In `challenge` mode it runs the same loop against a prompt pair biased toward finding counter-evidence, but still doesn't judge anything.
 
-**Evaluator** (`lib/ai/agents/evaluator.ts`) is a one-shot call. Its job is to take a single evidence object and a single claim, and decide: does this evidence strengthen, weaken, or not affect this claim? With what confidence? Why? It does *not* search for anything; it operates only on what the researcher gathered.
+**Evaluator** (`lib/ai/agents/evaluator.ts`) is a one-shot call. Its job is to take a single evidence object and a single claim, and decide: does this evidence strengthen, weaken, or not affect this claim? With what confidence? Why? It does *not* search for anything; it operates only on what the researcher gathered. It is mode-blind — it never sees whether the run that produced its input evidence was `research` or `challenge`.
 
 **Drafter** (`lib/ai/agents/drafter.ts`) is a one-shot call (no loop). Its job is to take a user's free-text paragraph describing their reasoning, plus the ticker and position direction, and extract 2-7 structured claims with category labels. It does *not* search for anything; it doesn't decide what's right or wrong; it just structures the user's own words. The user reviews and edits the output before saving.
 
+**Summarizer** (`lib/ai/agents/summarizer.ts`) is a one-shot call. Its job is to take the theses that changed over the past week (evidence + health movement) and write a short digest blurb per thesis for the weekly email. It does *not* search or evaluate; it only synthesizes what already happened.
+
+**Challenger** (`lib/ai/agents/challenger.ts`) is a one-shot call. Its job is to argue the case *against* a thesis, citing only evidence the evaluator has already, independently, scored as `weakens`. It runs once per `challenge`-mode agent run, after evaluation and health recomputation finish (see Flow 1). It does *not* search, does *not* re-judge evidence, and does *not* recommend an action — see "Why challenge mode doesn't fabricate negativity" below.
+
 **Why separate them?**
 
-1. **Different prompts, different optimal models.** Each agent has a focused job. We can tune each independently. The researcher needs broad context, tool use, and patience. The evaluator needs precise judgment on a focused question. The drafter needs structured-output discipline against the user's own wording.
-2. **A model evaluating its own work is biased.** Well-documented; Anthropic explicitly recommends separation for agent verification. If one model both gathers and judges, it tends to inflate the importance of evidence it found.
-3. **Cleaner failure modes.** Each agent can be re-run independently. If the evaluator's judgment seems off for a specific (claim, evidence) pair, we re-run *just that pair* without re-gathering. If the drafter produces wonky claims, the user edits them in place — no other state is affected.
-4. **Architectural seams for the future.** Adding a fourth agent role (e.g. "summarizer" for the weekly digest, "devil's advocate" that explicitly looks for counter-evidence) becomes "drop a file in `lib/ai/agents/`." See the Extension Seams section.
-5. **Better story in interviews.** "Three agents with distinct roles" is concrete and explainable.
+1. **Different prompts, different optimal models.** Each agent has a focused job. We can tune each independently. The researcher needs broad context, tool use, and patience. The evaluator needs precise judgment on a focused question. The drafter needs structured-output discipline against the user's own wording. The challenger needs restraint — arguing only from what's in front of it.
+2. **A model evaluating its own work is biased.** Well-documented; Anthropic explicitly recommends separation for agent verification. If one model both gathers and judges, it tends to inflate the importance of evidence it found. The challenger is the sharpest example: it would be worthless if the model writing the brief could also decide what counts as weakening.
+3. **Cleaner failure modes.** Each agent can be re-run independently. If the evaluator's judgment seems off for a specific (claim, evidence) pair, we re-run *just that pair* without re-gathering. If the drafter produces wonky claims, the user edits them in place — no other state is affected. If the challenger has nothing to cite, it returns nothing rather than inventing a brief.
+4. **Architectural seams for the future.** Adding a new agent role (e.g. "fact-checker") is "drop a file in `lib/ai/agents/`." See the Extension Seams section — this is exactly the seam the summarizer and challenger both went through.
+5. **Better story in interviews.** "Five agents with distinct roles" is concrete and explainable.
 
 ### The researcher's loop
 
@@ -240,6 +255,16 @@ UX flow on the new-thesis page:
 4. Drafter runs, claims appear as editable cards. User can delete, edit, reorder.
 5. User saves the thesis with the final 2-5 claims.
 
+### Why challenge mode doesn't fabricate negativity
+
+A "devil's advocate" feature is only trustworthy if it can't invent a case that isn't there. Three separate guardrails make that true here, not one:
+
+1. **The prompt permits an empty result.** The challenger's system prompt (`lib/ai/prompts/challenger.ts`) never requires 5 points — it requires "at most 5," each backed by cited evidence, and explicitly allows saying the case is thin. `writeChallengeBrief` (`lib/ai/agents/challenger.ts`) returns `null` — not a weak brief — when the model's response is malformed or when every point fails to resolve to real claim/evidence indices, and `writeBriefForRun` (`lib/ai/challenge-pipeline.ts`) skips the write entirely (`reason: "no_citable_brief"`) rather than persist a hollow one.
+2. **The evaluator is mode-blind.** The same evaluator, with the same prompt, scores evidence from `research` and `challenge` runs identically. There is no "be harsher because this is a challenge run" path — a challenge run can only surface evidence that would have been scored `weakens` regardless of who asked for it.
+3. **The brief may only cite scored evidence.** `writeBriefForRun` sources its input exclusively from `listWeakeningLinksForThesis`, i.e. `claim_evidence_links` rows the evaluator already wrote with `impact: 'weakens'`. If a thesis has no such links, the pipeline returns before ever calling the model (`reason: "no_weakening_evidence"`) — no API call, no invented brief.
+
+Net effect: a thesis with no weakening evidence at all gets no brief, and a thesis whose weakening evidence is thin gets a brief that says so plainly. Note the gate is literal — `writeBriefForRun` skips only when there are *zero* weakening links; there is no materiality floor, so one old low-confidence link still produces a brief (one that, per the prompt, should describe the case as thin). The feature can only ever be as negative as the evidence actually is.
+
 ### Thesis health calculation
 
 This is deterministic code, not AI. Given all the `claim_evidence_links` for a claim, compute:
@@ -295,7 +320,7 @@ This architecture is designed to be *extended*, not rewritten, as the product ev
 | Future feature | Where it plugs in |
 |----------------|-------------------|
 | New evidence sources (Reddit, Twitter, podcasts, paid data APIs) | A new tool in `lib/ai/tools/`. Researcher's tool list grows by one entry. No other code changes. |
-| New agent roles (summarizer, devil's advocate, fact-checker) | A new file in `lib/ai/agents/`. Wire into Inngest if it runs async. |
+| New agent roles (summarizer, devil's advocate, fact-checker) | A new file in `lib/ai/agents/`. Wire into Inngest if it runs async. The devil's advocate shipped in Phase 7 as the **challenger** (`lib/ai/agents/challenger.ts`, wired via `lib/ai/challenge-pipeline.ts`) — exactly this seam, no other architecture changes needed. |
 | New notification channels (Slack, SMS, in-app push) | A new wrapper in `lib/notifications/` parallel to `lib/resend/`. Digest function takes a notification adapter. |
 | Public thesis sharing (read-only links) | New `thesis_shares` table; new public route `app/share/[shareId]/page.tsx`; reuses existing thesis-rendering components. |
 | Real-time updates (replace polling) | Swap the polling hook on agent-run cards for a Server-Sent Events or Inngest realtime subscription. Data model unchanged. |

@@ -107,6 +107,7 @@ export const agentRunStatus = pgEnum("agent_run_status", [
   "failed",
 ]);
 export const agentRunTrigger = pgEnum("agent_run_trigger", ["manual", "scheduled"]);
+export const agentRunMode = pgEnum("agent_run_mode", ["research", "challenge"]);
 export const digestBatchStatus = pgEnum("digest_batch_status", ["pending", "sending", "sent", "skipped"]);
 
 // Enum values mirror schemas/evidence.ts — keep in sync.
@@ -137,6 +138,10 @@ export const agentRuns = pgTable(
       .references(() => theses.id, { onDelete: "cascade" }),
     status: agentRunStatus("status").notNull().default("queued"),
     trigger: agentRunTrigger("trigger").notNull(),
+    // Orthogonal to `trigger`: trigger records WHO started the run, mode records
+    // WHAT it was looking for. Defaulting to 'research' correctly backfills every
+    // pre-Phase-7 row.
+    mode: agentRunMode("mode").notNull().default("research"),
     digestBatchId: uuid("digest_batch_id").references(() => digestBatches.id, { onDelete: "set null" }),
     startedAt: timestamp("started_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
@@ -259,6 +264,36 @@ export const thesisHealthSnapshots = pgTable(
     index("thesis_health_snapshots_thesis_recorded_idx").on(t.thesisId, t.recordedAt),
   ],
 );
+
+export const challengeBriefs = pgTable(
+  "challenge_briefs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    agentRunId: uuid("agent_run_id")
+      .notNull()
+      .references(() => agentRuns.id, { onDelete: "cascade" }),
+    thesisId: uuid("thesis_id")
+      .notNull()
+      .references(() => theses.id, { onDelete: "cascade" }),
+    headline: text("headline").notNull(),
+    summary: text("summary").notNull(),
+    // ChallengeBriefPoint[] — see lib/ai/schemas/challenge-brief.ts
+    points: jsonb("points").notNull(),
+    promptVersion: text("prompt_version").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [
+    uniqueIndex("challenge_briefs_run_idx").on(t.agentRunId),
+    index("challenge_briefs_thesis_created_idx").on(t.thesisId, t.createdAt),
+  ],
+);
+
+export type ChallengeBrief = typeof challengeBriefs.$inferSelect;
+export type NewChallengeBrief = typeof challengeBriefs.$inferInsert;
 
 export type Source = typeof sources.$inferSelect;
 export type AgentRun = typeof agentRuns.$inferSelect;

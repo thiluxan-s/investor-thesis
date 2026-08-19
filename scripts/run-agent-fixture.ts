@@ -7,7 +7,11 @@
  *
  * Run (needs Node 22, a thesis in the dev DB, + .env.local):
  *   USE_AI_FIXTURES=1 node --conditions=react-server --env-file=.env.local \
- *     --import tsx scripts/run-agent-fixture.ts [scenario]
+ *     --import tsx scripts/run-agent-fixture.ts [scenario] [mode]
+ *
+ * Challenge mode also writes a challenge brief:
+ *   USE_AI_FIXTURES=1 node --conditions=react-server --env-file=.env.local \
+ *     --import tsx scripts/run-agent-fixture.ts nvda-challenge challenge
  *
  * --conditions=react-server makes Node resolve the "server-only" no-op export
  * (the real package throws outside Next's server bundler).
@@ -33,15 +37,25 @@ import { selectChangedTheses } from "@/lib/digest/select";
 import { summarize } from "@/lib/ai/agents/summarizer";
 import { DigestFixtureReader } from "@/lib/ai/digest-fixtures";
 import { getSourcesByIds } from "@/lib/db/repositories/sources";
+import { ChallengeBriefFixtureReader } from "@/lib/ai/challenge-brief-fixtures";
+import { getBriefForRun } from "@/lib/db/repositories/challenge-briefs";
+import { writeBriefForRun } from "@/lib/ai/challenge-pipeline";
+import type { ChallengeBriefPoint } from "@/lib/ai/schemas/challenge-brief";
+import type { AgentRunMode } from "@/schemas/agent";
 
 async function main() {
   const scenario = process.argv[2] ?? "nvda-happy-path";
+  const mode = (process.argv[3] as AgentRunMode) ?? "research";
 
   const [thesis] = await db.select().from(theses).limit(1);
   if (!thesis) throw new Error("Seed a thesis first (create one in the app).");
-  const cs = await db.select().from(claimsTable).where(eq(claimsTable.thesisId, thesis.id));
+  const cs = await db
+    .select()
+    .from(claimsTable)
+    .where(eq(claimsTable.thesisId, thesis.id))
+    .orderBy(claimsTable.ordinal);
 
-  const run = await createAgentRun(thesis.id, "manual");
+  const run = await createAgentRun(thesis.id, "manual", { mode });
   await markRunning(run.id);
 
   const reader = new FixtureReader(FIXTURE_ROOT, scenario);
@@ -89,6 +103,7 @@ async function main() {
     [],
     { client, toolContext, persist, maxIterations: 12, maxTokens: 100_000, toolRunner },
     scenario,
+    mode,
   );
 
   await incrementRunTotals(run.id, {
@@ -130,11 +145,43 @@ async function main() {
   const digestClient: AnthropicLike = { createMessage: async () => new DigestFixtureReader(scenario).next() as Anthropic.Message };
   const digest = changed.length ? await summarize(changed, { client: digestClient }) : { theses: [] };
 
+  // --- Challenge brief (offline, fixture-backed; only for mode="challenge") ---
+  let brief: { headline: string; pointCount: number } | null = null;
+  if (mode === "challenge") {
+    const briefReader = new ChallengeBriefFixtureReader(scenario);
+    const briefClient: AnthropicLike = {
+      createMessage: async () => briefReader.next() as Anthropic.Message,
+    };
+    const briefClaims = cs.map((c) => ({ id: c.id, ordinal: c.ordinal, statement: c.statement }));
+    const { written, reason } = await writeBriefForRun({
+      thesisId: thesis.id,
+      agentRunId: run.id,
+      thesis: {
+        title: thesis.title,
+        ticker: thesis.ticker,
+        positionDirection: thesis.positionDirection,
+        timeHorizon: thesis.timeHorizon,
+      },
+      claims: briefClaims,
+      client: briefClient,
+    });
+    if (written) {
+      const stored = await getBriefForRun(run.id);
+      if (!stored) throw new Error("Expected a challenge_briefs row after writeBriefForRun, found none.");
+      const points = stored.points as ChallengeBriefPoint[];
+      brief = { headline: stored.headline, pointCount: points.length };
+      console.log(`Challenge brief: "${stored.headline}" (${points.length} points)`);
+    } else {
+      console.log(`Challenge brief not written: ${reason}`);
+    }
+  }
+
   console.log(
     JSON.stringify(
-      { scenario, runId: run.id, status: result.status, iterations: its.length, evidence: ev.length,
+      { scenario, mode, runId: run.id, status: result.status, iterations: its.length, evidence: ev.length,
         pairsEvaluated: pairs, linksPerClaim: linkCounts, overallScore, snapshots: snapshots.length,
-        digestThesesChanged: changed.length, digestBlurbs: digest.theses.length },
+        digestThesesChanged: changed.length, digestBlurbs: digest.theses.length,
+        brief: brief ? { headline: brief.headline, pointCount: brief.pointCount } : null },
       null,
       2,
     ),

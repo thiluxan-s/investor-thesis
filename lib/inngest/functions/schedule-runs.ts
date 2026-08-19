@@ -16,7 +16,7 @@ async function scheduleUserBatch(userId: string, weekOf: string): Promise<number
   // Fixtures keep scheduled dev runs deterministic & free; real path omits scenario.
   const scenario = serverEnv.USE_AI_FIXTURES ? "nvda-happy-path" : undefined;
   for (const t of theses) {
-    const run = await createAgentRun(t.id, "scheduled", batch.id);
+    const run = await createAgentRun(t.id, "scheduled", { digestBatchId: batch.id });
     await inngest.send({
       name: "agent.run-requested",
       data: { agentRunId: run.id, thesisId: t.id, userId, scenario, batchId: batch.id },

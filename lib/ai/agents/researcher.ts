@@ -4,8 +4,14 @@ import type { AnthropicLike } from "@/lib/ai/client";
 import { toAnthropicTools } from "@/lib/ai/client";
 import { TOOLS, executeToolCallSafely } from "@/lib/ai/tools/registry";
 import type { ToolContext, ToolResult } from "@/lib/ai/tools/types";
-import { ReturnResultSchema, type EvidenceItem } from "@/schemas/agent";
-import { systemPrompt, buildResearchTask } from "@/lib/ai/prompts/researcher";
+import { ReturnResultSchema, type EvidenceItem, type AgentRunMode } from "@/schemas/agent";
+import type { PositionDirection } from "@/schemas/thesis";
+import {
+  systemPrompt,
+  buildResearchTask,
+  challengeSystemPrompt,
+  buildChallengeTask,
+} from "@/lib/ai/prompts/researcher";
 
 export interface ResearcherPersist {
   appendIteration(it: {
@@ -42,16 +48,20 @@ export type ResearcherResult = {
 type AnyMessage = Anthropic.Message;
 
 export async function runResearcher(
-  thesis: { title: string; ticker: string; positionDirection: string; timeHorizon: string },
+  thesis: { title: string; ticker: string; positionDirection: PositionDirection; timeHorizon: string },
   claims: { statement: string }[],
   seenSourceUrls: string[],
   deps: ResearcherDeps,
   _scenario: string,
+  mode: AgentRunMode = "research",
 ): Promise<ResearcherResult> {
   const tools = toAnthropicTools(TOOLS) as { name: string; description: string; input_schema: unknown }[];
   const runTool = deps.toolRunner ?? executeToolCallSafely;
+  // Mode selects the prompt pair; the loop below is identical for both.
+  const activeSystem = mode === "challenge" ? challengeSystemPrompt : systemPrompt;
+  const buildTask = mode === "challenge" ? buildChallengeTask : buildResearchTask;
   const messages: Anthropic.MessageParam[] = [
-    { role: "user", content: buildResearchTask(thesis, claims, seenSourceUrls) },
+    { role: "user", content: buildTask(thesis, claims, seenSourceUrls) },
   ];
 
   let iterations = 0;
@@ -61,7 +71,7 @@ export async function runResearcher(
 
   while (iterations < deps.maxIterations && inputTokens + outputTokens < deps.maxTokens) {
     const started = Date.now();
-    const response = (await deps.client.createMessage({ system: systemPrompt, tools, messages })) as AnyMessage;
+    const response = (await deps.client.createMessage({ system: activeSystem, tools, messages })) as AnyMessage;
     const it = response.usage?.input_tokens ?? 0;
     const ot = response.usage?.output_tokens ?? 0;
     inputTokens += it;

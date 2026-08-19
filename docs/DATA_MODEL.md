@@ -102,6 +102,11 @@ One row per execution of the researcher loop.
   thesis_id: uuid (fk → theses.id, on delete cascade, indexed)
   status: enum('queued', 'running', 'complete', 'partial', 'failed')
   trigger: enum('manual', 'scheduled')
+  mode: enum('research', 'challenge') (default 'research')  // orthogonal to trigger: trigger is
+                                                              // WHO started the run, mode is WHAT
+                                                              // it was looking for. Defaults to
+                                                              // 'research' so every pre-Phase-7 row
+                                                              // backfills correctly.
   started_at: timestamptz (nullable)            // null while 'queued'
   completed_at: timestamptz (nullable)
   iterations_used: integer (default 0)
@@ -205,6 +210,32 @@ The join table where the evaluator's verdict lives.
 
 **Why store `evaluator_prompt_version`?** If we change the evaluator prompt mid-project, old evaluations should be marked stale. Comparing version strings tells us what to re-evaluate.
 
+### `challenge_briefs`
+
+One row per completed challenge run — the stored "case against the thesis."
+
+```ts
+{
+  id: uuid (pk)
+  agent_run_id: uuid (fk → agent_runs.id, on delete cascade, unique)
+  thesis_id: uuid (fk → theses.id, on delete cascade, indexed with created_at)
+  headline: text                                 // one-line summary of the strongest counter-argument
+  summary: text                                  // paragraph-length synthesis
+  points: jsonb                                  // ChallengeBriefPoint[] — see lib/ai/schemas/challenge-brief.ts
+  prompt_version: text                           // for cache invalidation when we change prompts
+  created_at: timestamptz
+  updated_at: timestamptz
+}
+```
+
+**Why unique on `agent_run_id`?** A challenge brief is the terminal output of exactly one challenge run — same relationship as `thesis_health_snapshots` to `agent_runs`.
+
+**Why denormalise `thesis_id`?** `agent_run_id` already gets you to the thesis via `agent_runs.thesis_id`, but every read of this table is "show me this thesis's briefs over time," same access pattern as `thesis_health_snapshots`. Storing `thesis_id` directly avoids a join on the hot path and lets us index `(thesis_id, created_at)` for that query.
+
+**Cascade behaviour:** deleting a thesis cascades to its agent runs, its challenge briefs, and everything else owned by it. Deleting an agent run cascades to its (at most one) challenge brief.
+
+**Rendering `points[].claimOrdinal` — a trap for 7b.** `claimOrdinal` is the claim's raw `claims.ordinal`, stored alongside `claimId` as a snapshot of what the brief argued against. It is **not** a display number. Every existing surface labels claims by array position + 1 (`lib/agent/evidence-verdicts.ts` emits `claimNumber: idx + 1`), and `deleteClaim` does not renumber survivors — so a thesis with ordinals `[0, 2, 3]` has a run trace calling the second claim "2" while a brief rendered as `claimOrdinal + 1` would call the same claim "3". **7b must resolve a brief point's label by looking up `claimId` in the thesis's claim list and using that position**, never by incrementing `claimOrdinal`. (`buildChallengeBriefTask` already does exactly this lookup when numbering claims for the prompt.)
+
 ## What we deliberately don't model
 
 - **No separate `Ticker` or `Company` table.** Free text `ticker` column is enough. Normalizing would add UX friction (autocomplete? what if the user types `NVDA.US`?) for no real value in v1.
@@ -232,7 +263,9 @@ pgvector is a Postgres extension. To enable on Neon:
 CREATE EXTENSION IF NOT EXISTS vector;
 ```
 
-This goes in the first migration. Drizzle supports the `vector` type via `drizzle-orm/pg-core` (check Context7 for current syntax). Embeddings come from Anthropic's embedding API — see Architecture for which model/dimension we're targeting (1536 dims is the common default).
+This goes in the first migration. Drizzle supports the `vector` type via `drizzle-orm/pg-core` (check Context7 for current syntax).
+
+**Honesty note:** `evidence.extracted_text_embedding` is declared and indexed, but nothing in the codebase writes or reads it — the column is reserved for a possible similarity-dedup pass, not wired up. Turning it on would also mean adding an embedding provider: Anthropic exposes no embeddings endpoint, so the vectors would have to come from a third party (Voyage, OpenAI, or a local model). That dependency is the main reason this is still a reservation rather than a feature.
 
 ## Seeding
 

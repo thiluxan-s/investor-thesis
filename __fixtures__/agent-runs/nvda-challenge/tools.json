@@ -1,0 +1,40 @@
+[
+  {
+    "results": [
+      {
+        "title": "Nvidia gross margin falls sequentially despite record revenue",
+        "url": "https://www.bloomberg.com/news/nvidia-gross-margin-sequential-decline",
+        "snippet": "Gross margin declined for the second straight quarter as pricing pressure builds"
+      },
+      {
+        "title": "Rival ships AI accelerator toolkit with published migration paths",
+        "url": "https://www.semianalysis.com/articles/rival-ai-toolkit-migration-paths",
+        "snippet": "A competing chipmaker released a software toolkit with documented migration tooling from Nvidia's stack"
+      }
+    ]
+  },
+  {
+    "url": "https://www.bloomberg.com/news/nvidia-gross-margin-sequential-decline",
+    "title": "Nvidia gross margin falls sequentially despite record revenue",
+    "markdown": "# Nvidia gross margin falls sequentially despite record revenue\nGross margin fell sequentially for the second straight quarter even as revenue hit a new record, as pricing pressure in the accelerator market builds.",
+    "source": {
+      "sourceUrl": "https://www.bloomberg.com/news/nvidia-gross-margin-sequential-decline",
+      "title": "Nvidia gross margin falls sequentially despite record revenue",
+      "domain": "bloomberg.com",
+      "rawContentHash": "cafef00d1",
+      "contentExcerpt": "Gross margin fell sequentially for the second straight quarter even as revenue hit a new record."
+    }
+  },
+  {
+    "url": "https://www.semianalysis.com/articles/rival-ai-toolkit-migration-paths",
+    "title": "Rival ships AI accelerator toolkit with published migration paths",
+    "markdown": "# Rival ships AI accelerator toolkit with published migration paths\nA competing chipmaker released a software toolkit with documented, published migration paths away from Nvidia's software stack.",
+    "source": {
+      "sourceUrl": "https://www.semianalysis.com/articles/rival-ai-toolkit-migration-paths",
+      "title": "Rival ships AI accelerator toolkit with published migration paths",
+      "domain": "semianalysis.com",
+      "rawContentHash": "cafef00d2",
+      "contentExcerpt": "A competing chipmaker released a software toolkit with documented, published migration paths away from Nvidia's software stack."
+    }
+  }
+]

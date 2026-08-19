@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { runResearcher, type ResearcherDeps } from "./researcher";
+import { challengeSystemPrompt, buildChallengeTask, systemPrompt } from "@/lib/ai/prompts/researcher";
 
 type MockMessage = { content: unknown[]; stop_reason: string; usage: { input_tokens: number; output_tokens: number } };
 
@@ -29,7 +30,7 @@ function deps(responses: MockMessage[], overrides: Partial<ResearcherDeps> = {})
   };
 }
 
-const thesis = { title: "T", ticker: "NVDA", positionDirection: "long", timeHorizon: "months" };
+const thesis = { title: "T", ticker: "NVDA", positionDirection: "long" as const, timeHorizon: "months" };
 const claims = [{ statement: "Revenue grows" }];
 
 describe("runResearcher", () => {
@@ -67,5 +68,44 @@ describe("runResearcher", () => {
     const d = deps([toolMsg("web_search", { query: "x" }), returnResultMsg([])], { toolRunner });
     await runResearcher(thesis, claims, [], d, "test");
     expect(toolRunner).toHaveBeenCalledWith("web_search", { query: "x" }, d.toolContext);
+  });
+});
+
+describe("runResearcher challenge mode", () => {
+  it("defaults to the research prompt", async () => {
+    const d = deps([returnResultMsg([])]);
+    await runResearcher(thesis, claims, [], d, "test");
+    const call = (d.client.createMessage as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(call.system).toBe(systemPrompt);
+  });
+
+  it("uses the challenge prompt and task when mode is challenge", async () => {
+    const d = deps([returnResultMsg([])]);
+    await runResearcher(thesis, claims, [], d, "test", "challenge");
+    const call = (d.client.createMessage as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(call.system).toBe(challengeSystemPrompt);
+    expect(call.messages[0].content).toBe(buildChallengeTask(thesis, claims, []));
+  });
+
+  it("keeps loop behaviour identical in challenge mode", async () => {
+    const many = Array.from({ length: 13 }, () => toolMsg("web_search", { query: "x" }));
+    const d = deps(many);
+    const res = await runResearcher(thesis, claims, [], d, "test", "challenge");
+    expect(res.status).toBe("partial");
+    expect(d.client.createMessage).toHaveBeenCalledTimes(12);
+  });
+});
+
+describe("buildChallengeTask", () => {
+  it("names the position direction so the model inverts for shorts", () => {
+    const shortThesis = { ...thesis, positionDirection: "short" as const };
+    expect(buildChallengeTask(shortThesis, claims, [])).toContain("BETTER than this short thesis assumes");
+    expect(buildChallengeTask(thesis, claims, [])).toContain("WORSE than this long thesis assumes");
+  });
+
+  it("lists claims zero-based and includes seen sources", () => {
+    const task = buildChallengeTask(thesis, claims, ["https://reuters.com/a"]);
+    expect(task).toContain("0. Revenue grows");
+    expect(task).toContain("https://reuters.com/a");
   });
 });
