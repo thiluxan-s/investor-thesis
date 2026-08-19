@@ -69,8 +69,8 @@
    - Recomputes and persists claim + thesis health for the run
                 │
                 ▼
-5. CHALLENGER runs in the same function, only when mode === 'challenge', only
-   AFTER health is recomputed
+5. CHALLENGER runs in the same function, only when mode === 'challenge', and
+   (on this path) only AFTER health is recomputed
    - Loads every weakening link across the thesis (not just this run's evidence)
    - Writes a challenge_briefs row citing only evidence the evaluator scored
                 │
@@ -78,7 +78,7 @@
 6. UI polls AgentRun status every 3s while 'running'; updates when 'complete'
 ```
 
-**Run modes.** `AgentRunRequested`/`AgentRunCompleted` carry an optional `mode: 'research' | 'challenge'` (defaults to `'research'`). The researcher only consumes `mode`, to pick its prompt pair (normal evidence-gathering vs. actively hunting for counter-evidence); `run-agent` is what forwards it unchanged onto the completion event. `run-agent` also emits that completion event for a challenge run even when the researcher found zero new evidence this time, because the brief argues from the thesis's *standing* weakening evidence (every prior `weakens` link), not just what this run collected — a well-covered thesis whose researcher surfaces nothing new should still show its case, not go silent. `evaluate-run` is the only place that branches on `mode`, and the brief step runs after `recompute-health` on both of its exits (no-new-evidence and evaluated): the challenger may cite only evidence the evaluator has already scored as weakening, so running it any earlier — inside `run-agent`, or before evaluation finishes — would mean arguing from unscored material. The evaluator itself never sees `mode`; it stays mode-blind by design (see "Why challenge mode doesn't fabricate negativity" below).
+**Run modes.** `AgentRunRequested`/`AgentRunCompleted` carry an optional `mode: 'research' | 'challenge'` (defaults to `'research'`). The researcher only consumes `mode`, to pick its prompt pair (normal evidence-gathering vs. actively hunting for counter-evidence); `run-agent` is what forwards it unchanged onto the completion event. `run-agent` also emits that completion event for a challenge run even when the researcher found zero new evidence this time, because the brief argues from the thesis's *standing* weakening evidence (every prior `weakens` link), not just what this run collected — a well-covered thesis whose researcher surfaces nothing new should still show its case, not go silent. `evaluate-run` is the only place that branches on `mode`, and the brief step runs on both of its exits (no-new-evidence and evaluated) — on the evaluated exit only after `recompute-health`, while the no-new-evidence exit returns before `recompute-health` ever runs, there being nothing new to score. The challenger may cite only evidence the evaluator has already scored as weakening, so running it any earlier — inside `run-agent`, or before evaluation finishes — would mean arguing from unscored material. The evaluator itself never sees `mode`; it stays mode-blind by design (see "Why challenge mode doesn't fabricate negativity" below).
 
 ### Flow 2: Weekly scheduled run + digest
 
@@ -263,7 +263,7 @@ A "devil's advocate" feature is only trustworthy if it can't invent a case that 
 2. **The evaluator is mode-blind.** The same evaluator, with the same prompt, scores evidence from `research` and `challenge` runs identically. There is no "be harsher because this is a challenge run" path — a challenge run can only surface evidence that would have been scored `weakens` regardless of who asked for it.
 3. **The brief may only cite scored evidence.** `writeBriefForRun` sources its input exclusively from `listWeakeningLinksForThesis`, i.e. `claim_evidence_links` rows the evaluator already wrote with `impact: 'weakens'`. If a thesis has no such links, the pipeline returns before ever calling the model (`reason: "no_weakening_evidence"`) — no API call, no invented brief.
 
-Net effect: a thesis with strong, well-supported claims and no material weakening evidence gets no brief at all, or a brief that says so plainly. The feature can only ever be as negative as the evidence actually is.
+Net effect: a thesis with no weakening evidence at all gets no brief, and a thesis whose weakening evidence is thin gets a brief that says so plainly. Note the gate is literal — `writeBriefForRun` skips only when there are *zero* weakening links; there is no materiality floor, so one old low-confidence link still produces a brief (one that, per the prompt, should describe the case as thin). The feature can only ever be as negative as the evidence actually is.
 
 ### Thesis health calculation
 

@@ -61,7 +61,8 @@ in the UI. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full desig
   thesis — the tool assists judgement, it doesn't replace it.
 - **Forced tool-use for every structured output, validated with Zod.** AI responses are never
   trusted as free-form JSON.
-- **pgvector, not a separate vector DB.** Postgres already there; embeddings live beside the data.
+- **pgvector, not a separate vector DB.** Postgres is already there, so the embedding column lives
+  beside the data — reserved for similarity dedup, and currently unwritten and unread.
 - **Deterministic health math, not AI-scored aggregation.** Claim scores roll up by a fixed
   formula so the trend line is reproducible and explainable.
 - **Weekly schedule, not real-time.** Matches how theses actually move and respects free-tier limits.

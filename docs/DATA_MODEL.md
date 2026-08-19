@@ -234,6 +234,8 @@ One row per completed challenge run — the stored "case against the thesis."
 
 **Cascade behaviour:** deleting a thesis cascades to its agent runs, its challenge briefs, and everything else owned by it. Deleting an agent run cascades to its (at most one) challenge brief.
 
+**Rendering `points[].claimOrdinal` — a trap for 7b.** `claimOrdinal` is the claim's raw `claims.ordinal`, stored alongside `claimId` as a snapshot of what the brief argued against. It is **not** a display number. Every existing surface labels claims by array position + 1 (`lib/agent/evidence-verdicts.ts` emits `claimNumber: idx + 1`), and `deleteClaim` does not renumber survivors — so a thesis with ordinals `[0, 2, 3]` has a run trace calling the second claim "2" while a brief rendered as `claimOrdinal + 1` would call the same claim "3". **7b must resolve a brief point's label by looking up `claimId` in the thesis's claim list and using that position**, never by incrementing `claimOrdinal`. (`buildChallengeBriefTask` already does exactly this lookup when numbering claims for the prompt.)
+
 ## What we deliberately don't model
 
 - **No separate `Ticker` or `Company` table.** Free text `ticker` column is enough. Normalizing would add UX friction (autocomplete? what if the user types `NVDA.US`?) for no real value in v1.
@@ -261,9 +263,9 @@ pgvector is a Postgres extension. To enable on Neon:
 CREATE EXTENSION IF NOT EXISTS vector;
 ```
 
-This goes in the first migration. Drizzle supports the `vector` type via `drizzle-orm/pg-core` (check Context7 for current syntax). Embeddings come from Anthropic's embedding API — see Architecture for which model/dimension we're targeting (1536 dims is the common default).
+This goes in the first migration. Drizzle supports the `vector` type via `drizzle-orm/pg-core` (check Context7 for current syntax).
 
-**Honesty note:** `evidence.extracted_text_embedding` is declared but not yet written or read anywhere in the codebase — reserved for planned similarity-dedup, not yet wired up.
+**Honesty note:** `evidence.extracted_text_embedding` is declared and indexed, but nothing in the codebase writes or reads it — the column is reserved for a possible similarity-dedup pass, not wired up. Turning it on would also mean adding an embedding provider: Anthropic exposes no embeddings endpoint, so the vectors would have to come from a third party (Voyage, OpenAI, or a local model). That dependency is the main reason this is still a reservation rather than a feature.
 
 ## Seeding
 
