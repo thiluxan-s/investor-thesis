@@ -1,30 +1,37 @@
-# nvda-challenge (provisional)
+# nvda-challenge
 
-**This scenario is hand-authored for offline testing and has not yet been recorded from a
-live run.** The messages, tool results, evaluations, and challenge brief in this directory
-are plausible but fabricated — no Anthropic call, web search, or web fetch produced them.
+**Recorded from a live challenge run** against the demo NVDA thesis on 2026-08-20.
+The messages, tool results, evaluations, challenge brief, and digest in this directory
+are real Anthropic API output — six model turns, twelve tool results from real sources,
+twenty-one evaluator verdicts, and a five-point brief.
 
-It exists so `USE_AI_FIXTURES=1` can exercise the challenge-mode researcher loop, the
-evaluation pipeline, and `writeChallengeBrief` end-to-end without spending real API tokens.
+`USE_AI_FIXTURES=1` replays it to exercise the challenge-mode researcher loop, the
+evaluation pipeline, and `writeChallengeBrief` end-to-end without spending API tokens.
 
-**Before this scenario is used to seed anything user-facing (in particular the `/demo`
-seed in Phase 7b), it must be replaced by a real recording.** Record it by running, with
-approval, `--live` against a real thesis:
+## Re-recording
+
+Only needed if the prompts or the tool contract change materially. It spends real money:
 
 ```bash
-node --conditions=react-server --env-file=.env.local --import tsx \
+USE_AI_FIXTURES=0 node --conditions=react-server --env-file=.env.local --import tsx \
   scripts/run-agent-fixture.ts nvda-challenge challenge \
   --live --thesis <demo-thesis-id>
 ```
 
-This calls the live Anthropic API against a real NVDA thesis and spends real money.
-`--thesis` is not optional here: `claim_indices` and the brief's `claim_index` are
-positional into that thesis's ordinal-ordered claim list, so recording against a
-different claim set silently maps arguments onto the wrong claims — the indices stay
-in range, so nothing errors. `--live` also refuses to run with `USE_AI_FIXTURES=1` set,
-and prompts for typed confirmation before it spends anything.
+`--thesis` is not optional. `claim_indices` and the brief's `claim_index` are positional
+into that thesis's ordinal-ordered claim list, so recording against a different claim set
+silently maps arguments onto the wrong claims — the indices stay in range, so nothing
+errors. Record against the demo thesis, whose three claims this scenario's indices assume.
 
-The harness writes only the fixture files whose sink was non-empty this run — it will
-not stomp `challenge-brief.json` or `digest.json` with unreadable content if the brief
-or digest pipeline had nothing to write this time. Once a real recording lands (all five
-files populated), replace this provisional content and delete this warning.
+`--live` refuses to run with `USE_AI_FIXTURES=1` set, and prompts for typed confirmation
+before it spends anything. An inline `USE_AI_FIXTURES=0` prefix overrides `--env-file`,
+which is why the command above works without editing `.env.local`.
+
+**Seed the demo thesis first** (`scripts/seed-demo.ts`, fixtured and free). The brief
+pipeline returns `no_weakening_evidence` without calling the model if the thesis has no
+standing `weakens` links, and the seeded research run supplies one — so the recording
+still produces a brief even if the challenge run itself finds nothing new.
+
+The harness writes only the files whose sink was non-empty. It will not stomp
+`challenge-brief.json` or `digest.json` with unreadable content when the brief or digest
+pipeline had nothing to write.

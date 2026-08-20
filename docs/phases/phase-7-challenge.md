@@ -68,21 +68,32 @@ Delivered like the 3a/3b and 4a/4b sub-phases before it:
 - Editing or dismissing a brief.
 - Notifying the user when a challenge run breaks a thesis — that's the separate health-alerts idea.
 
-## The fixture-recording gate
+## The fixture-recording gate (closed)
 
-`__fixtures__/agent-runs/nvda-challenge/` exists and is exercised by the test suite, but its content is currently **hand-authored, not recorded** — the scenario's own `README.md` says so plainly: "This scenario is hand-authored for offline testing and has not yet been recorded from a live run. The messages, tool results, evaluations, and challenge brief in this directory are plausible but fabricated." It is enough to prove the pipeline works end-to-end offline under `USE_AI_FIXTURES=1`; it is not enough to show a recruiter.
+`__fixtures__/agent-runs/nvda-challenge/` shipped in 7a as **hand-authored, not recorded** — plausible but fabricated content, enough to prove the pipeline worked offline under `USE_AI_FIXTURES=1`, not enough to show a recruiter. It was recorded for real on 2026-08-20 and the gate is closed.
 
-**This blocks 7b's demo-seed work.** Before `/demo` seeds a challenge run and brief, this scenario must be replaced by a real recording — run the recording command from the scenario's `README.md` against the live Anthropic API, with approval and real cost, using `--live` and `--thesis`:
+**The command 7a documented never recorded anything.** `scripts/run-agent-fixture.ts` built every client from a `FixtureReader` unconditionally and never read `USE_AI_FIXTURES`, so running it "without fixtures" replayed the fabricated JSON and wrote it to the database as though real. Phase 7b added the `--live` capture path that makes the instruction true; see the 7b design spec's "Correction to the 7a record".
+
+The recording that closed the gate:
 
 ```bash
-node --conditions=react-server --env-file=.env.local --import tsx \
+# 1. seed the demo thesis first — fixtured and free. The brief pipeline returns
+#    no_weakening_evidence without calling the model if the thesis has no standing
+#    `weakens` links, and the seeded research run supplies one.
+USE_AI_FIXTURES=1 node --conditions=react-server --env-file=.env.local \
+  --import tsx scripts/seed-demo.ts
+
+# 2. the live recording
+USE_AI_FIXTURES=0 node --conditions=react-server --env-file=.env.local --import tsx \
   scripts/run-agent-fixture.ts nvda-challenge challenge \
   --live --thesis <demo-thesis-id>
 ```
 
-`--thesis` is not optional for a re-recording: `claim_indices` and the brief's `claim_index` are positional into the ordinal-ordered claim list of whichever thesis is used, so recording against a different claim set silently maps arguments onto the wrong claims — the indices stay in range, so nothing errors. `--live` also refuses to run alongside `USE_AI_FIXTURES=1` and prompts for typed confirmation ("record") before it spends anything.
+It produced 6 model turns, 12 tool results from real sources, 7 pieces of evidence, 21 evaluator verdicts, and a 5-point brief; the scenario replays offline to the same result.
 
-— then capture the real messages/tools/evaluations/brief into the fixture files (the harness only overwrites the files whose sink was non-empty this run, so a short-circuited brief or digest leaves the existing committed file alone), and delete the warning. `/demo` is the only path a recruiter walks; it cannot show fabricated content passed off as agent output.
+`--thesis` is not optional for a re-recording: `claim_indices` and the brief's `claim_index` are positional into the ordinal-ordered claim list of whichever thesis is used, so recording against a different claim set silently maps arguments onto the wrong claims — the indices stay in range, so nothing errors. `--live` refuses to run alongside `USE_AI_FIXTURES=1` and prompts for typed confirmation before spending. The harness writes only the files whose sink was non-empty, so a short-circuited brief or digest leaves the existing committed file alone rather than overwriting it with content its reader would reject.
+
+Seeding `/demo` with a challenge run remains **Phase 7c** work — the demo trace route does not render the brief yet. The fixture no longer blocks it.
 
 ## What 7a leaves wired but untriggered
 
