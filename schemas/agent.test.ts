@@ -4,6 +4,7 @@ import {
   WebFetchInputSchema,
   EdgarInputSchema,
   ReturnResultSchema,
+  AgentRunModeSchema,
 } from "./agent";
 
 describe("tool input schemas", () => {
@@ -29,5 +30,17 @@ describe("tool input schemas", () => {
     };
     expect(ReturnResultSchema.safeParse(ok).success).toBe(true);
     expect(ReturnResultSchema.safeParse({ evidence: [{ source_url: "x" }] }).success).toBe(false);
+  });
+});
+
+describe("AgentRunModeSchema", () => {
+  it("accepts both run modes", () => {
+    expect(AgentRunModeSchema.safeParse("research").success).toBe(true);
+    expect(AgentRunModeSchema.safeParse("challenge").success).toBe(true);
+  });
+  it("rejects anything else", () => {
+    expect(AgentRunModeSchema.safeParse("bear-case").success).toBe(false);
+    expect(AgentRunModeSchema.safeParse("").success).toBe(false);
+    expect(AgentRunModeSchema.safeParse(undefined).success).toBe(false);
   });
 });
