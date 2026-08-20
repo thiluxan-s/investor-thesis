@@ -10,7 +10,7 @@ export const MODE_LABEL: Record<AgentRunMode, string> = {
 // a brick chip rather than a red alert.
 export const MODE_CLASS: Record<AgentRunMode, string> = {
   research: "bg-zinc-100 text-zinc-600",
-  challenge: "bg-[#f4f1ee] text-[#8a5a3b]",
+  challenge: "bg-challenge-badge text-challenge-foreground",
 };
 
 // The trace heading names the run for what it is. A record rather than an

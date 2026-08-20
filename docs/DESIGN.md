@@ -188,6 +188,27 @@ Paragraph mode renders **`ParagraphDrafter`** — a **review-and-add** pattern, 
 
 **Trace = faithful rebuild, not component reuse:** `ShowcaseTrace` rebuilds the iteration markup rather than importing the real `IterationCard`/`EvidenceCard`, because those require full DB-row types (`AgentRunIteration`, `Evidence`) that would be brittle to hand-fake on a static page. It drops the real card's interactive `<details>` expander (no reasoning to expand in the showcase) and otherwise matches the real tokens exactly.
 
+### Challenge surfaces (Phase 7b)
+
+**Goal:** Trigger and surface a "challenge" run — the agent hunting for evidence against the thesis — without it reading as an alarm, and without letting the UI imply a verdict the evaluator hasn't reached.
+
+**A first-class `--challenge-*` token, not a one-off hex.** The palette (foreground `#8a5a3b`, badge bg `#f4f1ee`, panel bg `#fcfbfa`) is wired the same way as the health colours — CSS variables in both the light and dark blocks of `app/globals.css`, exposed through `@theme inline` as `--color-challenge-foreground` / `--color-challenge-badge` / `--color-challenge-panel`, consumed as Tailwind classes (`text-challenge-foreground`, `bg-challenge-badge`, `bg-challenge-panel`) in `lib/agent/run-mode.ts` and `ChallengeBrief`. **It is deliberately not the brick `--health-weak` pair.** Brick means *weakening evidence* on this app; a challenge run that finds nothing and concludes "the thesis held up" would then wear a weakening-coloured badge, misreading a mode as a verdict. The colour marks which kind of run this is, not what it found — same reasoning as the allow-list-refusal brick precedent, just for the opposite case (a colour that must stay verdict-neutral rather than one that signals a specific outcome).
+
+**Brief sits above the iteration timeline.** Conclusion first, working shown below it — the recruiter reads the case (or the "held up" result) before they'd scroll into the trace that produced it. Mirrors how the sticky `RunHeader` already puts status ahead of detail.
+
+**Trigger is a secondary outline `Button`, not a menu item or a primary action.** `ChallengeButton` sits beside "Analyze now" as an occasional, deliberate action a user reaches for — not the default path (that's still the primary "Analyze now"), and not buried in an overflow menu, since it's a first-class mode worth surfacing directly. The confirmation `AlertDialog` sets expectations ("may find nothing — that is a real result, not a failure") before the run starts.
+
+**"No counter-evidence found" is a result, not an empty state.** The researcher prompt explicitly permits "the thesis held up" as a correct challenge outcome, so `NoChallengeBrief` states it plainly rather than apologizing for finding nothing — no illustration, no "nothing here yet" phrasing.
+
+**Naming: "Challenge," never "bear case."** For a short position the counter-case argues the stock rises — "bear case" would be backwards. "Challenge" names the run's *function* (arguing against the thesis) independent of position direction, and the brief itself never recommends an action; it only lays out the case.
+
+**Design-pass revisions (this section was drafted in the plan, then corrected in front of the running screens):**
+1. Promoted the three hex literals to the `--challenge-*` tokens above, rather than leaving them as inline hex in `run-mode.ts` and `ChallengeBrief` — consistent with how every other semantic colour in the app is wired, and it gave the dark-mode variants a home.
+2. The brief's `<h2>` was `text-[17px]`, one pixel off `RunHeader`'s `text-lg` (18px) title — not enough difference to read as hierarchy. Dropped to `text-base` (16px) so it's unambiguously subordinate to the run title; weight and colour, not size, carry the brief's own prominence (principle 3, "type does the work").
+3. `text-[17px]` and `text-[15px]` were arbitrary values off Tailwind's scale. Replaced with `text-base` / `text-sm`; `text-[11px]` was left alone since it's an established convention across the trace components already.
+4. `NoChallengeBrief` was a bordered card for three lines stating an outcome — a border it hadn't earned (principle 2, "flat over carded"; principle 3, "borders do the least work"). Made it flat: no border, no background, separated from what's above it by a single hairline top rule plus spacing. `ChallengeBrief` itself had both an outer card border and an inner `border-t` above its points list — two borders in one small component. Kept the outer card (it's a genuine block of analysis) and let spacing alone separate the summary from the points.
+5. The brief appeared with no entrance on a page built around Motion-driven reveals (`IterationCard` fades/springs in as polling discovers new iterations). Gave both `ChallengeBrief` and `NoChallengeBrief` the same restrained entrance (`opacity`/`y` fade via `motion/react`, no per-point stagger — one moment, not a cascade), matching `IterationCard`'s treatment rather than inventing a new one. This makes `ChallengeBrief.tsx` a client component (`"use client"`) — an acceptable cost for a presentational leaf, the same trade `IterationCard` already makes; the trace *page* stays a Server Component, data fetching unchanged.
+
 ### Hardening (Phase 6d)
 
 **Goal:** Every screen works on a phone, loads gracefully, and degrades calmly — production-quality, not a desktop prototype.
@@ -208,6 +229,8 @@ Paragraph mode renders **`ParagraphDrafter`** — a **review-and-add** pattern, 
 
 Newest first. Capture meaningful choices with one-sentence rationale.
 
+- **2026-08-19 — Challenge colour promoted to a first-class `--challenge-*` token, wired like the health colours.** Deliberately not the brick `--health-weak` pair — brick means weakening evidence, and a "thesis held up" challenge run would then wear a weakening-coloured badge; the colour marks run *mode*, not verdict.
+- **2026-08-19 — Challenge brief design pass:** headline dropped from `text-[17px]` to `text-base` so it reads clearly subordinate to the run title; off-scale `text-[15px]` also moved to the scale; `NoChallengeBrief` made flat (hairline + spacing, no card) since three lines stating a result don't earn a border; `ChallengeBrief`'s redundant inner `border-t` above the points list removed in favor of spacing; both brief states now get the same restrained Motion entrance as `IterationCard`, making `ChallengeBrief.tsx` a client component.
 - **2026-06-20 — Mobile-first responsive (base stacked, `lg:` desktop), desktop rendering unchanged.** App + demo two-column grids stack on phones; only the offending fixed grids/rows were touched.
 - **2026-06-20 — Skeletons (not spinners) for the slower routes** (list/detail/trace) via a shared `Skeleton`, each matching its page layout for a seamless swap.
 - **2026-06-20 — Branded `error`/`not-found` boundaries that never leak internals.** `app/(app)/error.tsx` (client, calm "Something went wrong" + retry) and a branded root `app/not-found.tsx`; the error body never prints the caught `error`.
