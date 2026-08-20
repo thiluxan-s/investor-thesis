@@ -76,16 +76,47 @@ export type ScenarioFixtures = {
   digest: unknown[];
 };
 
-export function writeScenarioFixtures(dir: string, files: ScenarioFixtures): void {
+export type WriteScenarioFixturesResult = {
+  written: string[];
+  skipped: string[];
+};
+
+// Two sinks are routinely empty on a legitimate live run: challengeBrief when
+// the brief pipeline short-circuits (e.g. no_weakening_evidence), and digest
+// when no thesis changed. Writing those through unconditionally would replace
+// a readable committed fixture with `[]` or `null` — content the matching
+// fixture reader can't consume — destroying a working scenario on a run that
+// otherwise succeeded. So every sink is skipped when empty, leaving whatever
+// is already committed at that path untouched, and the caller is told which
+// files actually landed so a partial recording can't look like a full one.
+export function writeScenarioFixtures(dir: string, files: ScenarioFixtures): WriteScenarioFixturesResult {
   mkdirSync(dir, { recursive: true });
-  const write = (name: string, value: unknown) =>
+  const written: string[] = [];
+  const skipped: string[] = [];
+
+  const writeArray = (name: string, value: unknown[]) => {
+    if (value.length === 0) {
+      skipped.push(name);
+      return;
+    }
     writeFileSync(join(dir, name), JSON.stringify(value, null, 2) + "\n", "utf8");
-  write("messages.json", files.messages);
-  write("tools.json", files.tools);
-  write("evaluations.json", files.evaluations);
-  write("challenge-brief.json", files.challengeBrief);
+    written.push(name);
+  };
+
+  writeArray("messages.json", files.messages);
+  writeArray("tools.json", files.tools);
+  writeArray("evaluations.json", files.evaluations);
+  writeArray("challenge-brief.json", files.challengeBrief);
+
   // DigestFixtureReader reads a single bare message (no cycling — the
   // summarizer is called at most once per run), unlike the other four files
   // which are arrays. Unwrap here so the file matches what the reader expects.
-  write("digest.json", files.digest[0] ?? null);
+  if (files.digest.length === 0) {
+    skipped.push("digest.json");
+  } else {
+    writeFileSync(join(dir, "digest.json"), JSON.stringify(files.digest[0], null, 2) + "\n", "utf8");
+    written.push("digest.json");
+  }
+
+  return { written, skipped };
 }

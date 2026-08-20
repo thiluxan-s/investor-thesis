@@ -14,7 +14,9 @@ describe("run mode presentation", () => {
   it("never uses bear-case language", () => {
     // For a short thesis the counter-case is bullish, so "bear" is wrong half
     // the time. This is a project-wide naming rule, not a style preference.
-    for (const label of Object.values(MODE_LABEL)) {
+    // MODE_HEADING is included alongside MODE_LABEL because it is exactly
+    // where someone would later write "Bear case run" without noticing.
+    for (const label of [...Object.values(MODE_LABEL), ...Object.values(MODE_HEADING)]) {
       expect(label.toLowerCase()).not.toContain("bear");
     }
   });

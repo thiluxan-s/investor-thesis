@@ -50,9 +50,10 @@ export function ChallengeBrief({
                     <Link
                       key={c.evidenceId}
                       href={`/theses/${thesisId}/runs/${c.agentRunId}#evidence-${c.evidenceId}`}
-                      className="font-mono text-zinc-500 underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800"
+                      className="text-zinc-500 underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800"
                     >
-                      {c.domain} <span className="font-sans text-zinc-400">· earlier run</span>
+                      {c.title} <span className="font-mono text-zinc-400">{c.domain}</span>{" "}
+                      <span className="font-sans text-zinc-400">· earlier run</span>
                     </Link>
                   ),
                 )}

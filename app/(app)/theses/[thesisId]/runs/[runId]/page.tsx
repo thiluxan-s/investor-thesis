@@ -16,7 +16,7 @@ import { PollWhileRunning } from "@/components/agent/PollWhileRunning";
 import { RunHeader } from "@/components/agent/trace/RunHeader";
 import { IterationCard } from "@/components/agent/trace/IterationCard";
 import { ChallengeBrief, NoChallengeBrief } from "@/components/agent/trace/ChallengeBrief";
-import type { ChallengeBriefPoint } from "@/lib/ai/schemas/challenge-brief";
+import { PersistedChallengeBriefPointsSchema } from "@/lib/ai/schemas/challenge-brief";
 
 export default async function TracePage({
   params,
@@ -51,10 +51,15 @@ export default async function TracePage({
 
   // Challenge runs carry a brief. Its citations point at the thesis's standing
   // weakening evidence, so some may belong to earlier runs and have no card here.
-  const brief = run.mode === "challenge" ? await getBriefForRun(run.id) : null;
+  const rawBrief = run.mode === "challenge" ? await getBriefForRun(run.id) : null;
+  // points is JSONB — a row written by an older or future promptVersion could
+  // be shaped differently (e.g. missing evidenceIds). Validate rather than
+  // cast: a malformed brief must never 500 the app's most important screen.
+  const parsedPoints = rawBrief ? PersistedChallengeBriefPointsSchema.safeParse(rawBrief.points) : null;
+  const brief = parsedPoints?.success ? rawBrief : null;
   let resolvedPoints: ReturnType<typeof resolveBriefCitations> = [];
-  if (brief) {
-    const points = brief.points as ChallengeBriefPoint[];
+  if (brief && parsedPoints?.success) {
+    const points = parsedPoints.data;
     const citedIds = [...new Set(points.flatMap((p) => p.evidenceIds))];
     const thisRunEvidenceIds = new Set(evidence.map((e) => e.id));
     const foreignIds = citedIds.filter((id) => !thisRunEvidenceIds.has(id));
@@ -103,7 +108,7 @@ export default async function TracePage({
           thesisId={thesisId}
         />
       )}
-      {run.mode === "challenge" && !brief && isTerminalStatus(run.status) && run.status !== "failed" && (
+      {run.mode === "challenge" && !rawBrief && isTerminalStatus(run.status) && run.status !== "failed" && (
         <NoChallengeBrief />
       )}
 

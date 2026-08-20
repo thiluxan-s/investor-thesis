@@ -72,14 +72,17 @@ Delivered like the 3a/3b and 4a/4b sub-phases before it:
 
 `__fixtures__/agent-runs/nvda-challenge/` exists and is exercised by the test suite, but its content is currently **hand-authored, not recorded** — the scenario's own `README.md` says so plainly: "This scenario is hand-authored for offline testing and has not yet been recorded from a live run. The messages, tool results, evaluations, and challenge brief in this directory are plausible but fabricated." It is enough to prove the pipeline works end-to-end offline under `USE_AI_FIXTURES=1`; it is not enough to show a recruiter.
 
-**This blocks 7b's demo-seed work.** Before `/demo` seeds a challenge run and brief, this scenario must be replaced by a real recording — run the recording command from the scenario's `README.md` against the live Anthropic API (with approval, real cost, no `USE_AI_FIXTURES`) —
+**This blocks 7b's demo-seed work.** Before `/demo` seeds a challenge run and brief, this scenario must be replaced by a real recording — run the recording command from the scenario's `README.md` against the live Anthropic API, with approval and real cost, using `--live` and `--thesis`:
 
 ```bash
 node --conditions=react-server --env-file=.env.local --import tsx \
-  scripts/run-agent-fixture.ts nvda-challenge challenge
+  scripts/run-agent-fixture.ts nvda-challenge challenge \
+  --live --thesis <demo-thesis-id>
 ```
 
-— then capture the real messages/tools/evaluations/brief into the four fixture files, and delete the warning. `/demo` is the only path a recruiter walks; it cannot show fabricated content passed off as agent output.
+`--thesis` is not optional for a re-recording: `claim_indices` and the brief's `claim_index` are positional into the ordinal-ordered claim list of whichever thesis is used, so recording against a different claim set silently maps arguments onto the wrong claims — the indices stay in range, so nothing errors. `--live` also refuses to run alongside `USE_AI_FIXTURES=1` and prompts for typed confirmation ("record") before it spends anything.
+
+— then capture the real messages/tools/evaluations/brief into the fixture files (the harness only overwrites the files whose sink was non-empty this run, so a short-circuited brief or digest leaves the existing committed file alone), and delete the warning. `/demo` is the only path a recruiter walks; it cannot show fabricated content passed off as agent output.
 
 ## What 7a leaves wired but untriggered
 

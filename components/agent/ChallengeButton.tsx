@@ -1,5 +1,5 @@
 "use client";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,8 +19,9 @@ import { triggerAgentRun } from "@/app/(app)/theses/agent-actions";
 export function ChallengeButton({ thesisId, disabled }: { thesisId: string; disabled?: boolean }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [open, setOpen] = useState(false);
   return (
-    <AlertDialog>
+    <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
         <Button variant="outline" disabled={pending || disabled}>
           {pending ? "Starting…" : "Challenge"}
@@ -40,11 +41,19 @@ export function ChallengeButton({ thesisId, disabled }: { thesisId: string; disa
           <AlertDialogAction
             disabled={pending}
             onClick={(e) => {
+              // Radix composes AlertDialogAction's close with checkForDefaultPrevented,
+              // so preventDefault here stops it auto-closing before the async work runs.
+              // We close it ourselves once we know the outcome.
               e.preventDefault();
               startTransition(async () => {
                 const res = await triggerAgentRun(thesisId, "challenge");
-                if (res.ok) router.refresh();
-                else toast.error(res.error);
+                if (res.ok) {
+                  setOpen(false);
+                  router.refresh();
+                } else {
+                  toast.error(res.error);
+                  setOpen(false);
+                }
               });
             }}
           >

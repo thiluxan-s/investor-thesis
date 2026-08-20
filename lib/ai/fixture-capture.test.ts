@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Anthropic } from "@anthropic-ai/sdk";
@@ -111,5 +111,67 @@ describe("writeScenarioFixtures", () => {
 
     const brief = JSON.parse(readFileSync(join(root, "scenario-x", "challenge-brief.json"), "utf8"));
     expect(brief).toEqual([message]);
+  });
+
+  it("reports which files were written", () => {
+    const root = mkdtempSync(join(tmpdir(), "fixcap-"));
+    const message = { content: [], stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1 } };
+
+    const result = writeScenarioFixtures(join(root, "scenario-y"), {
+      messages: [message],
+      tools: [{ hits: 1 }],
+      evaluations: [message],
+      challengeBrief: [message],
+      digest: [message],
+    });
+
+    expect(result).toEqual({
+      written: ["messages.json", "tools.json", "evaluations.json", "challenge-brief.json", "digest.json"],
+      skipped: [],
+    });
+  });
+
+  it("leaves an existing challenge-brief.json untouched when the sink is empty", () => {
+    const root = mkdtempSync(join(tmpdir(), "fixcap-"));
+    const dir = join(root, "scenario-z");
+    mkdirSync(dir, { recursive: true });
+    const existing = [{ committed: true }];
+    writeFileSync(join(dir, "challenge-brief.json"), JSON.stringify(existing), "utf8");
+    const message = { content: [], stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1 } };
+
+    const result = writeScenarioFixtures(dir, {
+      messages: [message],
+      tools: [{ hits: 1 }],
+      evaluations: [message],
+      challengeBrief: [], // brief pipeline short-circuited (e.g. no_weakening_evidence)
+      digest: [message],
+    });
+
+    expect(result.skipped).toEqual(["challenge-brief.json"]);
+    expect(result.written).not.toContain("challenge-brief.json");
+    const onDisk = JSON.parse(readFileSync(join(dir, "challenge-brief.json"), "utf8"));
+    expect(onDisk).toEqual(existing);
+  });
+
+  it("leaves an existing digest.json untouched when the sink is empty", () => {
+    const root = mkdtempSync(join(tmpdir(), "fixcap-"));
+    const dir = join(root, "scenario-w");
+    mkdirSync(dir, { recursive: true });
+    const existing = { committed: true };
+    writeFileSync(join(dir, "digest.json"), JSON.stringify(existing), "utf8");
+    const message = { content: [], stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1 } };
+
+    const result = writeScenarioFixtures(dir, {
+      messages: [message],
+      tools: [{ hits: 1 }],
+      evaluations: [message],
+      challengeBrief: [message],
+      digest: [], // no thesis changed this run
+    });
+
+    expect(result.skipped).toEqual(["digest.json"]);
+    expect(result.written).not.toContain("digest.json");
+    const onDisk = JSON.parse(readFileSync(join(dir, "digest.json"), "utf8"));
+    expect(onDisk).toEqual(existing);
   });
 });

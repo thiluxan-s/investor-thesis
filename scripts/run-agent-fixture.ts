@@ -15,6 +15,27 @@
  *
  * --conditions=react-server makes Node resolve the "server-only" no-op export
  * (the real package throws outside Next's server bundler).
+ *
+ * --- Recording a fixture from the live API (real cost) ---
+ *
+ * The two runs above are both OFFLINE — they replay `__fixtures__/agent-runs/`
+ * and never call Anthropic. To actually record a scenario, pass --live and
+ * --thesis, and do NOT set USE_AI_FIXTURES (the script refuses to start if
+ * it's set):
+ *
+ *   node --conditions=react-server --env-file=.env.local --import tsx \
+ *     scripts/run-agent-fixture.ts nvda-challenge challenge \
+ *     --live --thesis <demo-thesis-id>
+ *
+ * --thesis is not optional for a re-recording: the researcher's claim_indices
+ * and the brief's claim_index are positional into that thesis's
+ * ordinal-ordered claim list. Recording against a thesis with a different
+ * claim set silently maps arguments onto the wrong claims — the indices stay
+ * in range, so nothing errors.
+ *
+ * --live prompts for typed confirmation ("record") before spending money, and
+ * only overwrites the fixture files whose sink was actually non-empty this
+ * run — see writeScenarioFixtures in lib/ai/fixture-capture.ts.
  */
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -224,14 +245,19 @@ async function main() {
 
   if (live) {
     const dir = join(FIXTURE_ROOT, scenario);
-    writeScenarioFixtures(dir, {
+    const { written, skipped } = writeScenarioFixtures(dir, {
       messages: captured.messages,
       tools: toolResultsFromIterations(its),
       evaluations: captured.evaluations,
       challengeBrief: captured.challengeBrief,
       digest: captured.digest,
     });
-    console.log(`Wrote 5 fixture files to ${dir}`);
+    console.log(`Wrote to ${dir}: ${written.length ? written.join(", ") : "(nothing)"}`);
+    if (skipped.length > 0) {
+      console.log(
+        `Skipped (sink was empty this run — existing committed file left untouched): ${skipped.join(", ")}`,
+      );
+    }
   }
 
   console.log(
