@@ -47,7 +47,14 @@ async function main() {
     notes: null,
   });
   await db.insert(claimsTable).values(DEMO_CLAIMS.map((c) => ({ thesisId: DEMO_THESIS_ID, ...c })));
-  const cs = await db.select().from(claimsTable).where(eq(claimsTable.thesisId, DEMO_THESIS_ID));
+  // Positional claim indices (researcher claim_indices, brief claim_index) are
+  // resolved against this order — it must be the ordinal order, not whatever
+  // Postgres returns.
+  const cs = await db
+    .select()
+    .from(claimsTable)
+    .where(eq(claimsTable.thesisId, DEMO_THESIS_ID))
+    .orderBy(claimsTable.ordinal);
 
   // One real fixtured run → trace + evidence + verdicts + current health + snapshot.
   const run = await createAgentRun(DEMO_THESIS_ID, "scheduled");
