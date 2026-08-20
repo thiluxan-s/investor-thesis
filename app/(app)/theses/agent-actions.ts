@@ -13,16 +13,33 @@ import { DrafterFixtureReader } from "@/lib/ai/drafter-fixtures";
 import { createAnthropicClient, type AnthropicLike } from "@/lib/ai/client";
 import { serverEnv } from "@/lib/env.server";
 import type { DraftedClaim } from "@/lib/ai/schemas/drafter";
+import { AgentRunModeSchema, type AgentRunMode } from "@/schemas/agent";
+import { scenarioForMode } from "@/lib/agent/scenario";
 
-export async function triggerAgentRun(thesisId: string): Promise<ActionResult<{ agentRunId: string }>> {
+export async function triggerAgentRun(
+  thesisId: string,
+  mode: AgentRunMode = "research",
+): Promise<ActionResult<{ agentRunId: string }>> {
   const userId = await requireUserId();
+  const parsedMode = AgentRunModeSchema.safeParse(mode);
+  if (!parsedMode.success) return { ok: false, error: "Unknown run mode" };
+
   const thesis = await getThesisForUser(userId, thesisId);
   if (!thesis) return { ok: false, error: "Thesis not found" };
-  const run = await createAgentRun(thesisId, "manual");
+
+  const run = await createAgentRun(thesisId, "manual", { mode: parsedMode.data });
   // scenario makes fixture runs deterministic in dev; ignored by the real path.
+  // It MUST follow the mode — a challenge run carrying the research scenario
+  // replays research messages through the challenge loop without failing.
   await inngest.send({
     name: "agent.run-requested",
-    data: { agentRunId: run.id, thesisId, userId, scenario: "nvda-happy-path" },
+    data: {
+      agentRunId: run.id,
+      thesisId,
+      userId,
+      scenario: scenarioForMode(parsedMode.data),
+      mode: parsedMode.data,
+    },
   });
   revalidatePath(`/theses/${thesisId}`);
   return { ok: true, data: { agentRunId: run.id } };
