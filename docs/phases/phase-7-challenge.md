@@ -120,6 +120,22 @@ Nothing in the app sends `mode: "challenge"` yet — the trigger is 7b's. Two th
 
 **Two dead 7a functions resolved.** `listLinksForClaimWithMode`, added in 7a with no caller, is deleted; `listClaimEvidenceDetail` is the drill-down's actual query. `getLatestBriefForThesis`, also caller-less since 7a, gets its first caller — the thesis page and `/demo` both use it to source `LatestChallengeBrief`.
 
+**What the seed now produces, and why the demo reads negative.** After a re-seed the
+demo thesis's overall health is about **-0.20**, with all three claims weakening, against a
+backdated trajectory that ends at +0.20. This is correct, not a seeding bug: the challenge
+run's evidence genuinely outweighs the research run's, and the resulting story — a long
+thesis that quietly broke — is the PRD's problem statement demonstrated on the one page a
+recruiter lands on. Do not "fix" it by re-weighting the fixtures. The two runs also each
+write a health snapshot, so the chart carries two current points on top of the three
+backdated anchors; the research run's snapshot is deliberately backdated three days so they
+render as distinct ticks rather than one same-day step.
+
+**Two seams are deliberately untested**, adjudicated during the final review rather than
+overlooked: `loadTraceBrief` (`lib/agent/trace-brief.ts`) and `listClaimEvidenceDetail`. Both
+touch the database, and this project has no DB test harness — the pure logic they compose
+(`resolveBriefCitations`, `rankContributions`) is unit-tested against hand-built inputs
+instead. Re-raising these needs a harness first, not a test.
+
 **Still deferred:** the challenge brief's recorded real headline runs to 113 characters — longer than the roughly 90 the 7b design assumed when it sized `ChallengeBrief`'s heading. How that headline wraps at 113 characters has not been revisited in this phase.
 
 ---
