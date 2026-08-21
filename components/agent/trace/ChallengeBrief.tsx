@@ -7,12 +7,14 @@ export function ChallengeBrief({
   headline,
   summary,
   points,
-  thesisId,
+  runHrefBase,
 }: {
   headline: string;
   summary: string;
   points: ResolvedPoint[];
-  thesisId: string;
+  // Path prefix for run links, without a trailing slash. The demo renders the
+  // same brief under /demo/runs, so the component must not know about /theses.
+  runHrefBase: string;
 }) {
   return (
     <motion.section
@@ -31,7 +33,7 @@ export function ChallengeBrief({
         {points.map((point, idx) => (
           <li key={`${point.claimId}-${idx}`}>
             <p className="text-[11px] font-medium text-zinc-400">
-              Claim {point.claimOrdinal + 1}
+              {point.claimNumber !== null ? `Claim ${point.claimNumber}` : "Removed claim"}
               {point.claimStatement && <span className="text-zinc-500"> · {point.claimStatement}</span>}
             </p>
             <p className="mt-1 text-sm leading-relaxed text-zinc-800">{point.argument}</p>
@@ -49,7 +51,7 @@ export function ChallengeBrief({
                   ) : (
                     <Link
                       key={c.evidenceId}
-                      href={`/theses/${thesisId}/runs/${c.agentRunId}#evidence-${c.evidenceId}`}
+                      href={`${runHrefBase}/${c.agentRunId}#evidence-${c.evidenceId}`}
                       className="text-zinc-500 underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800"
                     >
                       {c.title} <span className="font-mono text-zinc-400">{c.domain}</span>{" "}
