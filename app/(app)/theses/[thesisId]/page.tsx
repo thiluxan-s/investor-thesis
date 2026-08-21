@@ -17,6 +17,8 @@ import { listSnapshotsForThesis } from "@/lib/db/repositories/health-snapshots";
 import { HealthChart } from "@/components/theses/HealthChart";
 import { HealthBar } from "@/components/agent/HealthBar";
 import { thesisHealth } from "@/lib/health/score";
+import { getLatestBriefForThesis } from "@/lib/db/repositories/challenge-briefs";
+import { LatestChallengeBrief } from "@/components/agent/LatestChallengeBrief";
 
 export default async function ThesisDetailPage({
   params,
@@ -40,6 +42,7 @@ export default async function ThesisDetailPage({
     }, null);
 
   const snapshots = await listSnapshotsForThesis(thesis.id);
+  const latestBrief = await getLatestBriefForThesis(thesis.id);
   const chartPoints = snapshots
     .map((s) => ({ recordedAt: s.recordedAt.toISOString(), score: Number(s.overallScore) }))
     .reverse(); // listSnapshotsForThesis is newest-first; chart wants oldest→newest
@@ -107,6 +110,15 @@ export default async function ThesisDetailPage({
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Notes</p>
             <NotesEditor thesisId={thesis.id} notes={thesis.notes} />
           </div>
+
+          {latestBrief && (
+            <LatestChallengeBrief
+              headline={latestBrief.headline}
+              agentRunId={latestBrief.agentRunId}
+              createdAt={latestBrief.createdAt}
+              runHrefBase={`/theses/${thesis.id}/runs`}
+            />
+          )}
 
           <div>
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Analysis</p>
