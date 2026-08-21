@@ -28,3 +28,12 @@ export function healthBarFill(score: number): { leftPct: number; widthPct: numbe
   const half = Math.abs(clamped) * 50;
   return clamped >= 0 ? { leftPct: 50, widthPct: half } : { leftPct: 50 - half, widthPct: half };
 }
+
+// Impact chip styling, shared by the run-trace evidence card and the claim
+// drill-down's evidence rows. Lives here with the other pure presentation
+// helpers so the two surfaces cannot drift apart.
+export const IMPACT_STYLE = {
+  strengthens: { dot: "bg-health-strong", text: "text-health-strong", label: "strengthens" },
+  neutral: { dot: "bg-health-neutral", text: "text-zinc-500", label: "neutral" },
+  weakens: { dot: "bg-health-weak", text: "text-health-weak", label: "weakens" },
+} as const;
