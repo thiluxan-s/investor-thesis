@@ -1,5 +1,6 @@
 "use client";
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ClaimForm } from "@/components/theses/ClaimForm";
@@ -55,7 +56,12 @@ export function ClaimList({ thesisId, claims }: { thesisId: string; claims: Clai
                 trackClassName="w-20"
               />
             </div>
-            <p className="mt-1.5 text-sm leading-relaxed text-zinc-800">{c.statement}</p>
+            <Link
+              href={`/theses/${thesisId}/claims/${c.id}`}
+              className="mt-1.5 block text-sm leading-relaxed text-zinc-800 underline-offset-2 hover:text-primary hover:underline"
+            >
+              {c.statement}
+            </Link>
             <div className="mt-1.5 flex gap-3.5 text-xs text-zinc-400">
               <button type="button" className="hover:text-zinc-700" onClick={() => setEditingId(c.id)}>
                 Edit

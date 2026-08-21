@@ -3,8 +3,8 @@ import type { ChallengeBriefPoint } from "@/lib/ai/schemas/challenge-brief";
 import { resolveBriefCitations, type CitationSource } from "./brief-citations";
 
 const claimsById = new Map([
-  ["claim-a", { statement: "Data-center revenue keeps growing" }],
-  ["claim-b", { statement: "NVIDIA keeps its accelerator lead" }],
+  ["claim-a", { statement: "Data-center revenue keeps growing", displayNumber: 1 }],
+  ["claim-b", { statement: "NVIDIA keeps its accelerator lead", displayNumber: 2 }],
 ]);
 
 const known = new Map<string, CitationSource>([
@@ -58,6 +58,7 @@ describe("resolveBriefCitations", () => {
     expect(resolved.claimStatement).toBeNull();
     expect(resolved.claimOrdinal).toBe(7);
     expect(resolved.argument).toBe("Margins fell.");
+    expect(resolved.claimNumber).toBeNull();
   });
 
   it("carries the claim statement when the claim still exists", () => {
@@ -73,5 +74,40 @@ describe("resolveBriefCitations", () => {
       claimsById,
     );
     expect(resolved.map((p) => p.argument)).toEqual(["first", "second"]);
+  });
+
+  it("numbers claims by position, not by ordinal, when ordinals have a gap", () => {
+    // Claim list has ordinals [0, 2, 3] — the original second claim (ordinal 1)
+    // was deleted and deleteClaim does not renumber survivors. Display numbers
+    // must still be 1, 2, 3 by array position, matching every other surface
+    // (lib/agent/evidence-verdicts.ts), never claimOrdinal + 1 (which would be
+    // 1, 3, 4).
+    const gappedClaimsById = new Map([
+      ["claim-a", { statement: "First claim", displayNumber: 1 }],
+      ["claim-c", { statement: "Third claim", displayNumber: 2 }],
+      ["claim-d", { statement: "Fourth claim", displayNumber: 3 }],
+    ]);
+    const resolved = resolveBriefCitations(
+      [
+        point({ claimId: "claim-a", claimOrdinal: 0 }),
+        point({ claimId: "claim-c", claimOrdinal: 2 }),
+        point({ claimId: "claim-d", claimOrdinal: 3 }),
+      ],
+      "run-1",
+      known,
+      gappedClaimsById,
+    );
+    expect(resolved.map((p) => p.claimNumber)).toEqual([1, 2, 3]);
+  });
+
+  it("yields a null claimNumber alongside a null claimStatement when the claim is gone", () => {
+    const [resolved] = resolveBriefCitations(
+      [point({ claimId: "claim-gone", claimOrdinal: 7 })],
+      "run-1",
+      known,
+      claimsById,
+    );
+    expect(resolved.claimStatement).toBeNull();
+    expect(resolved.claimNumber).toBeNull();
   });
 });

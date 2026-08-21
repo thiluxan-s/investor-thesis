@@ -2,25 +2,23 @@
  * Re-seedable demo data. Run (Node 22 + .env.local):
  *   USE_AI_FIXTURES=1 node --conditions=react-server --env-file=.env.local \
  *     --import tsx scripts/seed-demo.ts
+ *
+ * Seeds two fixtured runs: a research run and a challenge run with its brief.
+ * Both replay __fixtures__/agent-runs/ and cost nothing.
  */
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users, theses, claims as claimsTable, agentRuns, thesisHealthSnapshots } from "@/lib/db/schema";
-import { markRunning, finishRun, incrementRunTotals, createAgentRun } from "@/lib/db/repositories/agent-runs";
-import { appendIteration } from "@/lib/db/repositories/agent-run-iterations";
-import { findOrCreateSource } from "@/lib/db/repositories/sources";
-import { createEvidence, listEvidenceForRun } from "@/lib/db/repositories/evidence";
-import { runResearcher, type ResearcherPersist } from "@/lib/ai/agents/researcher";
-import type { AnthropicLike } from "@/lib/ai/client";
-import type { ToolContext, ToolResult } from "@/lib/ai/tools/types";
-import { FixtureReader, FIXTURE_ROOT } from "@/lib/ai/fixtures";
-import { hostnameOf, sha256 } from "@/lib/ai/url";
-import type { Anthropic } from "@anthropic-ai/sdk";
-import { EvaluationFixtureReader } from "@/lib/ai/evaluation-fixtures";
-import { evaluateMatrix, recomputeAndPersist } from "@/lib/ai/evaluate-pipeline";
+import { seedFixturedRun } from "@/lib/demo/seed-run";
+import { RESEARCH_SCENARIO, CHALLENGE_SCENARIO } from "@/lib/agent/scenario";
 import { DEMO_THESIS_ID, DEMO_USER_CLERK_ID, DEMO_USER_EMAIL } from "@/lib/demo/constants";
 
-const SCENARIO = "nvda-happy-path";
+const DEMO_THESIS = {
+  title: "Long NVDA — durable AI data-center demand",
+  ticker: "NVDA",
+  positionDirection: "long" as const,
+  timeHorizon: "6_to_12_months" as const,
+};
 const DEMO_CLAIMS = [
   { ordinal: 0, statement: "Data-center revenue keeps growing at a high rate year over year", category: "financial_performance" as const },
   { ordinal: 1, statement: "NVIDIA keeps its lead over competing AI accelerators", category: "competitive_position" as const },
@@ -39,10 +37,7 @@ async function main() {
   await db.insert(theses).values({
     id: DEMO_THESIS_ID,
     userId: user.id,
-    title: "Long NVDA — durable AI data-center demand",
-    ticker: "NVDA",
-    positionDirection: "long",
-    timeHorizon: "6_to_12_months",
+    ...DEMO_THESIS,
     status: "active",
     notes: null,
   });
@@ -55,37 +50,49 @@ async function main() {
     .from(claimsTable)
     .where(eq(claimsTable.thesisId, DEMO_THESIS_ID))
     .orderBy(claimsTable.ordinal);
+  const pipelineClaims = cs.map((c) => ({
+    id: c.id,
+    ordinal: c.ordinal,
+    statement: c.statement,
+    category: c.category,
+  }));
+  const seedThesis = { id: DEMO_THESIS_ID, ...DEMO_THESIS };
 
-  // One real fixtured run → trace + evidence + verdicts + current health + snapshot.
-  const run = await createAgentRun(DEMO_THESIS_ID, "scheduled");
-  await markRunning(run.id);
-  const reader = new FixtureReader(FIXTURE_ROOT, SCENARIO);
-  const client: AnthropicLike = { createMessage: async () => reader.nextMessage() as Anthropic.Message };
-  const toolRunner = async (): Promise<ToolResult> => ({ ok: true, output: reader.nextToolResult() });
-  const toolContext: ToolContext = { search: { search: async () => [] }, fetcher: async () => ({ status: 200, html: "", finalUrl: "" }), edgarClient: async () => [], useFixtures: true, scenario: SCENARIO };
-  const persist: ResearcherPersist = {
-    appendIteration: (it) => appendIteration({ agentRunId: run.id, ...it }),
-    persistEvidence: async (item) => {
-      const source = await findOrCreateSource({ url: item.source_url, domain: hostnameOf(item.source_url), title: item.title, rawContentHash: sha256(item.extracted_text), contentExcerpt: item.snippet });
-      await createEvidence({ agentRunId: run.id, sourceId: source.id, extractedText: item.extracted_text, claimIndices: item.claim_indices, agentReasoning: null });
-    },
-  };
-  const result = await runResearcher(
-    { title: "Long NVDA — durable AI data-center demand", ticker: "NVDA", positionDirection: "long", timeHorizon: "6_to_12_months" },
-    cs.map((c) => ({ statement: c.statement })),
-    [],
-    { client, toolContext, persist, maxIterations: 12, maxTokens: 100_000, toolRunner },
-    SCENARIO,
-  );
-  await incrementRunTotals(run.id, { inputTokens: result.inputTokens, outputTokens: result.outputTokens, iterations: result.iterations, evidence: result.evidenceCount });
-  await finishRun(run.id, result.status === "failed" ? "failed" : result.status, { error: result.reason });
-
-  const ev = await listEvidenceForRun(run.id);
-  const pipelineClaims = cs.map((c) => ({ id: c.id, ordinal: c.ordinal, statement: c.statement, category: c.category }));
-  const evalReader = new EvaluationFixtureReader(SCENARIO);
-  const evalClient: AnthropicLike = { createMessage: async () => evalReader.next() as Anthropic.Message };
-  await evaluateMatrix({ claims: pipelineClaims, evidence: ev.map((e) => ({ id: e.id, extractedText: e.extractedText })), client: evalClient });
-  const { overallScore } = await recomputeAndPersist({ thesisId: DEMO_THESIS_ID, agentRunId: run.id, claims: pipelineClaims });
+  // Two fixtured runs. ORDER IS LOAD-BEARING for two independent reasons:
+  // (1) writeBriefForRun returns no_weakening_evidence without calling the
+  // model unless the thesis already holds standing `weakens` links, and the
+  // research run is what supplies them; (2) the brief's evidence_indices are
+  // positional into selectBriefEvidence's ranked output, so which run's
+  // evidence lands at which index depends on this order too — reversing the
+  // two runs would silently re-point the challenger's citations at different
+  // sources, with nothing erroring because the indices stay in range.
+  //
+  // recordedAt backdates this run's health snapshot by 3 days so its chart
+  // point gets its own date tick, distinct from the challenge run below
+  // (which records at "now"): HealthChart labels ticks with toLocaleDateString,
+  // so two snapshots seconds apart would otherwise render as two identically-
+  // labelled ticks with a vertical step between them.
+  const research = await seedFixturedRun({
+    thesis: seedThesis,
+    claims: pipelineClaims,
+    scenario: RESEARCH_SCENARIO,
+    mode: "research",
+    trigger: "scheduled",
+    recordedAt: new Date(Date.now() - 3 * 86_400_000),
+  });
+  const challenge = await seedFixturedRun({
+    thesis: seedThesis,
+    claims: pipelineClaims,
+    scenario: CHALLENGE_SCENARIO,
+    mode: "challenge",
+    trigger: "manual",
+  });
+  if (!challenge.briefWritten) {
+    console.warn(
+      `WARNING: no challenge brief was written (${challenge.briefReason}). ` +
+        `/demo will show the challenge run but no case-against card.`,
+    );
+  }
 
   // Backdated history → chart trend. Each snapshot needs a unique agent_run_id, so
   // anchor each to a minimal historical run (iterationsUsed = 0 → not listed by getDemoRuns).
@@ -110,7 +117,22 @@ async function main() {
     });
   }
 
-  console.log(JSON.stringify({ thesisId: DEMO_THESIS_ID, realRun: run.id, evidence: ev.length, currentOverall: overallScore, backdatedSnapshots: trajectory.length, demoUrl: "/demo" }, null, 2));
+  console.log(
+    JSON.stringify(
+      {
+        thesisId: DEMO_THESIS_ID,
+        researchRun: research.runId,
+        challengeRun: challenge.runId,
+        evidence: research.evidenceCount + challenge.evidenceCount,
+        briefWritten: challenge.briefWritten,
+        currentOverall: challenge.overallScore,
+        backdatedSnapshots: trajectory.length,
+        demoUrl: "/demo",
+      },
+      null,
+      2,
+    ),
+  );
 }
 
 main().then(() => process.exit(0), (err) => { console.error(err); process.exit(1); });

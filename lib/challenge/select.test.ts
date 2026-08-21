@@ -40,10 +40,49 @@ describe("selectBriefEvidence", () => {
     expect(selectBriefEvidence(many, now, 5)).toHaveLength(5);
   });
 
-  it("breaks ties deterministically by evidence id", () => {
-    const a = link({ evidenceId: "b-id" });
-    const b = link({ evidenceId: "a-id" });
-    expect(selectBriefEvidence([a, b], now).map((o) => o.evidenceId)).toEqual(["a-id", "b-id"]);
+  it("breaks weight ties by source domain", () => {
+    const a = link({ evidenceId: "e1", sourceDomain: "zeta.com" });
+    const b = link({ evidenceId: "e2", sourceDomain: "alpha.com" });
+    expect(selectBriefEvidence([a, b], now).map((o) => o.sourceDomain)).toEqual([
+      "alpha.com",
+      "zeta.com",
+    ]);
+  });
+
+  it("falls through to extracted text when the domain also ties", () => {
+    const a = link({ evidenceId: "e1", sourceDomain: "x.com", extractedText: "beta" });
+    const b = link({ evidenceId: "e2", sourceDomain: "x.com", extractedText: "alpha" });
+    expect(selectBriefEvidence([a, b], now).map((o) => o.extractedText)).toEqual([
+      "alpha",
+      "beta",
+    ]);
+  });
+
+  it("keeps ordering stable when evidence ids are regenerated", () => {
+    // seed-demo deletes and recreates the demo thesis, so every re-seed mints
+    // fresh evidence UUIDs and can hand them over in a different row order.
+    // Seeded links share a createdAt, so weight collapses to confidence alone
+    // and ties are the norm. The brief's citations are positional, so ordering
+    // must depend on content, never on ids or input order.
+    const content = [
+      { sourceDomain: "reuters.com", extractedText: "lead times compressed" },
+      { sourceDomain: "barrons.com", extractedText: "analysts split" },
+      { sourceDomain: "wsj.com", extractedText: "capex guidance cut" },
+    ];
+    const first = selectBriefEvidence(
+      content.map((c, i) => link({ evidenceId: `aaa-${i}`, ...c })),
+      now,
+    );
+    const second = selectBriefEvidence(
+      [...content].reverse().map((c, i) => link({ evidenceId: `zzz-${i}`, ...c })),
+      now,
+    );
+    expect(second.map((o) => o.sourceDomain)).toEqual(first.map((o) => o.sourceDomain));
+    expect(first.map((o) => o.sourceDomain)).toEqual([
+      "barrons.com",
+      "reuters.com",
+      "wsj.com",
+    ]);
   });
 
   it("exposes ageDays for the prompt", () => {

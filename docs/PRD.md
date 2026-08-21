@@ -43,7 +43,7 @@ A signed-in user can:
 4. Trigger an "analyze now" run manually — agent gathers fresh evidence, evaluates against claims, updates state.
 5. See the thesis dashboard:
    - Each claim with a health indicator (strengthening / neutral / weakening), based on evidence accumulated.
-   - Evidence timeline showing every piece collected, with source link, extracted text, agent's reasoning, and impact on which claim.
+   - Evidence timeline showing every piece collected, with source link, extracted text, agent's reasoning, and impact on which claim — via a per-claim drill-down that decomposes a claim's health score into the evidence that produced it.
    - Agent run history — every run is inspectable (what it searched, what it found, what it skipped).
 6. Edit claims (re-evaluations are queued automatically).
 7. Receive a weekly digest by email — "this week, here's what changed about your thesis."

@@ -1,11 +1,6 @@
 import type { Evidence } from "@/lib/db/schema";
 import type { EvidenceVerdict } from "@/lib/agent/evidence-verdicts";
-
-const IMPACT_STYLE = {
-  strengthens: { dot: "bg-health-strong", text: "text-health-strong", label: "strengthens" },
-  neutral: { dot: "bg-health-neutral", text: "text-zinc-500", label: "neutral" },
-  weakens: { dot: "bg-health-weak", text: "text-health-weak", label: "weakens" },
-} as const;
+import { IMPACT_STYLE } from "@/lib/health/display";
 
 export function EvidenceCard({
   ev,

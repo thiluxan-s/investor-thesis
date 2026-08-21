@@ -25,8 +25,14 @@ export type SelectedEvidence = Omit<WeakeningLink, "claimOrdinal"> & {
 type WeightedLink = WeakeningLink & { weight: number; ageDays: number };
 
 // Rank by the same weight the health score uses, so the brief argues from the
-// evidence that is actually moving the number. Ties break by id to keep the
-// prompt (and therefore the fixture) stable across runs.
+// evidence that is actually moving the number.
+//
+// Ties break on CONTENT (source domain, then extracted text), not on
+// evidenceId. Id-based ordering is only stable while the rows persist, and
+// seed-demo recreates the demo thesis on every re-seed — fresh UUIDs reshuffled
+// the order, and because a brief's citations are positional indices, that
+// re-paired arguments with unrelated sources. Two items with the same domain
+// and the same text are interchangeable, so ordering stops there.
 export function selectBriefEvidence(
   links: WeakeningLink[],
   now: Date,
@@ -80,6 +86,11 @@ export function selectBriefEvidence(
       weight: w.weight,
       ageDays: w.ageDays,
     }))
-    .sort((a, b) => b.weight - a.weight || a.evidenceId.localeCompare(b.evidenceId))
+    .sort(
+      (a, b) =>
+        b.weight - a.weight ||
+        (a.sourceDomain ?? "").localeCompare(b.sourceDomain ?? "") ||
+        a.extractedText.localeCompare(b.extractedText),
+    )
     .slice(0, cap);
 }

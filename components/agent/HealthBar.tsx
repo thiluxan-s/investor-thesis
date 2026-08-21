@@ -19,14 +19,23 @@ type HealthBarProps = {
   analyzed: boolean;
   // Track width; bars on dense rows are narrower than the detail summary.
   trackClassName?: string;
+  // Text shown in the unanalyzed state. The claim drill-down's split overrides
+  // it per line of inquiry ("No challenge runs yet"), because a zero-link
+  // subset is an absence, not a neutral score.
+  emptyLabel?: string;
 };
 
-export function HealthBar({ score, analyzed, trackClassName = "w-24" }: HealthBarProps) {
+export function HealthBar({
+  score,
+  analyzed,
+  trackClassName = "w-24",
+  emptyLabel = "Not analyzed",
+}: HealthBarProps) {
   if (!analyzed || score === null) {
     return (
       <span className="flex items-center gap-2 text-xs text-zinc-400">
         <span className={`h-1.5 rounded-full border border-dashed border-zinc-300 ${trackClassName}`} />
-        Not analyzed
+        {emptyLabel}
       </span>
     );
   }

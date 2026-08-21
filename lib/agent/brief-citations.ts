@@ -13,10 +13,20 @@ export type ResolvedCitation =
 
 export type ResolvedPoint = {
   claimId: string;
+  // The persisted snapshot of claims.ordinal at brief-write time. This is not
+  // display data — see claimNumber below — and is kept only for provenance.
   claimOrdinal: number;
   // null when the claim was deleted after the brief was written. The argument
   // still stands on its own, so the point is kept and rendered without a statement.
   claimStatement: string | null;
+  // Display number, 1-based by the claim's array position in the thesis's
+  // current claim list — not derived from claimOrdinal. deleteClaim does not
+  // renumber survivors, so ordinals can have gaps (e.g. [0, 2, 3]) while every
+  // other surface (lib/agent/evidence-verdicts.ts) labels claims by position.
+  // Rendering `claimOrdinal + 1` here would disagree with those surfaces on
+  // the same page. Null exactly when claimStatement is null: the claim was
+  // deleted after the brief was written, so no current position exists.
+  claimNumber: number | null;
   argument: string;
   citations: ResolvedCitation[];
 };
@@ -33,7 +43,7 @@ export function resolveBriefCitations(
   points: ChallengeBriefPoint[],
   thisRunId: string,
   known: ReadonlyMap<string, CitationSource>,
-  claimsById: ReadonlyMap<string, { statement: string }>,
+  claimsById: ReadonlyMap<string, { statement: string; displayNumber: number }>,
 ): ResolvedPoint[] {
   return points.map((point) => {
     const citations: ResolvedCitation[] = [];
@@ -52,10 +62,12 @@ export function resolveBriefCitations(
             },
       );
     }
+    const claim = claimsById.get(point.claimId);
     return {
       claimId: point.claimId,
       claimOrdinal: point.claimOrdinal,
-      claimStatement: claimsById.get(point.claimId)?.statement ?? null,
+      claimStatement: claim?.statement ?? null,
+      claimNumber: claim?.displayNumber ?? null,
       argument: point.argument,
       citations,
     };
