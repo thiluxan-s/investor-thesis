@@ -106,6 +106,29 @@ The shell `DATABASE_URL` overrides `--env-file`, so this targets prod while `.en
 supplies the other validated env vars. The seed is idempotent — safe to re-run. It only needs
 `DATABASE_URL` + `USE_AI_FIXTURES`.
 
+### Known limitation: Clerk runs on development keys
+
+The deployed app authenticates against a Clerk **development** instance, not a production
+one. That is a deliberate trade, not an oversight.
+
+Clerk production instances require five DNS records — Frontend API, Account Portal, and
+email authentication — on a domain you control. A `*.vercel.app` subdomain cannot host
+them, so going to production keys means buying a custom domain first. For a non-commercial
+portfolio project that has not been worth it yet.
+
+What it costs, honestly: development instances pass session data via a `__clerk_db_jwt`
+querystring rather than a same-site cookie, so session tokens can appear in server logs and
+browser history. Clerk is explicit that this is not suitable for production workloads. The
+Account Portal also renders on an `accounts.dev` domain, and the instance is capped at 100
+users.
+
+What it does not cost: the [`/demo`](https://investor-thesis.vercel.app/demo) path — the one
+this project is actually meant to be looked at through — requires no authentication and
+never touches Clerk. The exposure is limited to accounts that actually sign up.
+
+Moving to production keys is a domain purchase plus a key swap, a webhook re-registration,
+and a redeploy. It is on the list, behind work that changes what the product does.
+
 ## Build status
 
 Delivered in phases, each a working, reviewable slice:
