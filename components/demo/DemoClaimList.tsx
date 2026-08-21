@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { CategoryBadge } from "@/components/theses/CategoryBadge";
 import { HealthBar } from "@/components/agent/HealthBar";
 import type { Claim } from "@/lib/db/schema";
@@ -20,7 +21,12 @@ export function DemoClaimList({ claims }: { claims: Claim[] }) {
               trackClassName="w-20"
             />
           </div>
-          <p className="mt-1.5 text-sm leading-relaxed text-zinc-800">{c.statement}</p>
+          <Link
+            href={`/demo/claims/${c.id}`}
+            className="mt-1.5 block text-sm leading-relaxed text-zinc-800 underline-offset-2 hover:text-primary hover:underline"
+          >
+            {c.statement}
+          </Link>
         </div>
       ))}
     </div>

@@ -5,10 +5,13 @@ import { DIRECTION_LABELS, HORIZON_LABELS } from "@/lib/theses/labels";
 import { formatRelativeTime } from "@/lib/format/relative-time";
 import { thesisHealth } from "@/lib/health/score";
 import { isTerminalStatus } from "@/lib/agent/run-status";
+import { getLatestBriefForThesis } from "@/lib/db/repositories/challenge-briefs";
+import { MODE_LABEL, MODE_CLASS, showsModeBadge } from "@/lib/agent/run-mode";
 import { DemoBanner } from "@/components/demo/DemoBanner";
 import { DemoClaimList } from "@/components/demo/DemoClaimList";
 import { HealthBar } from "@/components/agent/HealthBar";
 import { HealthChart } from "@/components/theses/HealthChart";
+import { LatestChallengeBrief } from "@/components/agent/LatestChallengeBrief";
 
 // The demo is a public, live-data page (re-seedable). Render it at request time
 // so the build never connects to the database and the page always reflects the
@@ -30,6 +33,7 @@ export default async function DemoPage() {
     );
   }
   const runs = await getDemoRuns();
+  const latestBrief = await getLatestBriefForThesis(thesis.id);
   const snapshots = await listSnapshotsForThesis(thesis.id);
   const chartPoints = snapshots
     .map((s) => ({ recordedAt: s.recordedAt.toISOString(), score: Number(s.overallScore) }))
@@ -74,6 +78,16 @@ export default async function DemoPage() {
         </div>
 
         <div className="space-y-2">
+          {latestBrief && (
+            <div className="mb-6">
+              <LatestChallengeBrief
+                headline={latestBrief.headline}
+                agentRunId={latestBrief.agentRunId}
+                createdAt={latestBrief.createdAt}
+                runHrefBase="/demo/runs"
+              />
+            </div>
+          )}
           <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Analysis runs</p>
           {runs.length === 0 && <p className="text-xs text-zinc-400">No runs yet.</p>}
           {runs.map((r) => (
@@ -82,7 +96,14 @@ export default async function DemoPage() {
               href={`/demo/runs/${r.id}`}
               className="block rounded-lg border border-zinc-200 px-3 py-2.5 text-sm hover:bg-zinc-50"
             >
-              <span className="font-medium text-zinc-800">View agent run →</span>
+              <span className="flex items-center gap-2">
+                <span className="font-medium text-zinc-800">View agent run →</span>
+                {showsModeBadge(r.mode) && (
+                  <span className={`rounded-[5px] px-1.5 py-0.5 text-[11px] font-semibold ${MODE_CLASS[r.mode]}`}>
+                    {MODE_LABEL[r.mode]}
+                  </span>
+                )}
+              </span>
               <span className="mt-0.5 block font-mono text-[11px] text-zinc-400">
                 {r.iterationsUsed} iters · {r.evidenceCollected} evidence
                 {r.completedAt ? ` · ${formatRelativeTime(r.completedAt)}` : ""}

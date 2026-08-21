@@ -7,9 +7,11 @@ import { getSourcesByIds } from "@/lib/db/repositories/sources";
 import { listLinksForEvidenceIds } from "@/lib/db/repositories/claim-evidence-links";
 import { buildEvidenceVerdicts, type EvidenceVerdict } from "@/lib/agent/evidence-verdicts";
 import { isTerminalStatus } from "@/lib/agent/run-status";
+import { loadTraceBrief } from "@/lib/agent/trace-brief";
 import { DemoBanner } from "@/components/demo/DemoBanner";
 import { RunHeader } from "@/components/agent/trace/RunHeader";
 import { IterationCard } from "@/components/agent/trace/IterationCard";
+import { ChallengeBrief, NoChallengeBrief } from "@/components/agent/trace/ChallengeBrief";
 
 export default async function DemoTracePage({ params }: { params: Promise<{ runId: string }> }) {
   const { runId } = await params;
@@ -29,6 +31,15 @@ export default async function DemoTracePage({ params }: { params: Promise<{ runI
   const verdictsByEvidenceId = new Map<string, EvidenceVerdict[]>(
     evidence.map((e) => [e.id, buildEvidenceVerdicts(e.claimIndices, thesis.claims, linksByEvidenceId.get(e.id) ?? [])]),
   );
+  const traceBrief =
+    run.mode === "challenge"
+      ? await loadTraceBrief({
+          runId: run.id,
+          claims: thesis.claims,
+          runEvidence: evidence,
+          sourcesById,
+        })
+      : { hasRow: false, brief: null };
   const lastIterId = iterations.at(-1)?.id;
 
   return (
@@ -38,6 +49,23 @@ export default async function DemoTracePage({ params }: { params: Promise<{ runI
         ← Back to the demo thesis
       </Link>
       <RunHeader run={run} ticker={thesis.ticker} />
+
+      {run.status === "failed" && run.error && (
+        <p className="mt-4 rounded-lg bg-[#fbf1ef] px-4 py-3 text-sm text-[#C0492F]">{run.error}</p>
+      )}
+
+      {traceBrief.brief && (
+        <ChallengeBrief
+          headline={traceBrief.brief.headline}
+          summary={traceBrief.brief.summary}
+          points={traceBrief.brief.points}
+          runHrefBase="/demo/runs"
+        />
+      )}
+      {run.mode === "challenge" &&
+        !traceBrief.hasRow &&
+        isTerminalStatus(run.status) &&
+        run.status !== "failed" && <NoChallengeBrief />}
       <div className="relative mt-6 pl-[30px]">
         <span className="absolute bottom-4 left-[9px] top-1.5 w-0.5 bg-zinc-200" aria-hidden />
         {iterations.map((it, idx) => (
@@ -53,6 +81,11 @@ export default async function DemoTracePage({ params }: { params: Promise<{ runI
         ))}
         {iterations.length === 0 && <p className="text-sm text-zinc-400">No iterations recorded.</p>}
       </div>
+      {isTerminalStatus(run.status) && run.status !== "failed" && run.evidenceCollected === 0 && (
+        <p className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-500">
+          This run finished without finding new evidence.
+        </p>
+      )}
     </div>
   );
 }
