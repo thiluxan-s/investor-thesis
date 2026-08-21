@@ -7,7 +7,10 @@
 You write a thesis — a position you hold plus the falsifiable claims behind it. A hand-written
 agent loop then researches the web and SEC filings on a schedule, an evaluator scores each new
 piece of evidence against your claims, and a "thesis health" view tracks how the case for your
-position evolves over time. Every call the agent makes is inspectable.
+position evolves over time. Every call the agent makes is inspectable, right down to the
+per-claim level: click into any claim and its score decomposes into the evidence that produced
+it — each item's signed contribution and share of the total weight, split by whether a research
+or a challenge run found it.
 
 It's the agentic counterpart to my earlier project, [Wayfare](https://github.com/thiluxan-s/TravelApp):
 where Wayfare's AI is bounded (PDF in → JSON out), this one's AI is a real loop —
@@ -139,7 +142,7 @@ Delivered in phases, each a working, reviewable slice:
 - [x] **Phase 4 — Evaluator & health** — per-claim scoring and thesis-health-over-time
 - [x] **Phase 5 — Schedule & digest** — weekly Inngest cron + Resend email summaries
 - [x] **Phase 6 — Drafting, demo, polish & ship** — paragraph→claims drafter, public read-only demo, landing page, hardening, and production deploy
-- [ ] **Phase 7 — Challenge the thesis** — point the same loop *against* a thesis and have a challenger agent argue the case for why it's wrong. Engine shipped (7a); the per-claim drill-down and challenge trigger are next (7b).
+- [x] **Phase 7 — Challenge the thesis** — point the same loop *against* a thesis and have a challenger agent argue the case for why it's wrong: the engine (7a), the trigger and brief rendering (7b), and the per-claim drill-down with `/demo` parity (7c).
 
 ## What I'd build next
 

@@ -1,6 +1,6 @@
 # Phase 7 — Challenge the Thesis
 
-**Goal:** The agent can be pointed *against* a thesis, not only at it. A challenge run searches for disconfirming evidence with the same hand-written loop, the unchanged evaluator scores it, and a new one-shot agent writes a short brief arguing the case against the thesis. A per-claim view (Phase 7b) makes every health score explainable — which evidence moved it, by how much, and whether it came from research or from a challenge.
+**Goal:** The agent can be pointed *against* a thesis, not only at it. A challenge run searches for disconfirming evidence with the same hand-written loop, the unchanged evaluator scores it, and a new one-shot agent writes a short brief arguing the case against the thesis. A per-claim drill-down (Phase 7c) makes every health score explainable — which evidence moved it, by how much, and whether it came from research or from a challenge.
 
 **Prerequisite:** Phases 1–6 — shipped and merged (`main` @ `a3b8c5f`).
 
@@ -15,12 +15,13 @@ Two gaps in the shipped product, both visible from the docs before this phase:
 
 The two are one feature: the challenge run is the engine, the claim drill-down is where its output lands.
 
-## Scope split — 7a and 7b
+## Scope split — 7a, 7b, and 7c
 
-Delivered like the 3a/3b and 4a/4b sub-phases before it:
+Delivered like the 3a/3b and 4a/4b sub-phases before it, split one step further once 7b's own scope turned out to be enough for its own plan:
 
-- **Phase 7a — Challenge engine, no UI (this doc, shipped).** `agent_run_mode` enum + `agent_runs.mode`, `challenge_briefs` table, mode-aware researcher prompts, the challenger agent, the health-breakdown function, repositories, Inngest wiring, fixtures, an offline end-to-end test.
-- **Phase 7b — Surfaces (next, own plan after 7a merges).** Challenge trigger on the thesis header, brief rendering on the run trace, the per-claim drill-down route, `/demo` parity, design pass, and the PRD/README/DESIGN doc updates that describe a user-visible feature — deferred until there's a UI to describe.
+- **Phase 7a — Challenge engine, no UI (shipped).** `agent_run_mode` enum + `agent_runs.mode`, `challenge_briefs` table, mode-aware researcher prompts, the challenger agent, the health-breakdown function, repositories, Inngest wiring, fixtures, an offline end-to-end test.
+- **Phase 7b — Trigger and brief rendering (shipped).** The challenge trigger on the thesis header, brief rendering on the run trace, and the `--live` fixture-recording path that closed 7a's fixture gate with real recorded output.
+- **Phase 7c — Claim drill-down (this doc, shipped).** The per-claim drill-down route, `HealthSplit`, the weighted evidence list, the thesis-page brief bookmark, `/demo` parity, and the PRD/README/DESIGN doc updates that describe a user-visible feature — deferred until there was a UI to describe.
 
 ## Deliverables (high level) — 7a
 
@@ -57,9 +58,9 @@ Delivered like the 3a/3b and 4a/4b sub-phases before it:
 
 - `overall` is `claimHealth` computed over *every* link for the claim — identical to what `claims.current_health_score` already stores. `recompute-health` is untouched; nothing about its meaning changed.
 - `research` and `challenge` are each `claimHealth` computed over their own subset of links, with a count.
-- **The sub-scores deliberately do not sum, or average, to `overall`** — each is an independent weighted average over a different denominator. This is asserted directly as a unit-test property (`overall` equals `claimHealth` over all links; a research-only subset and a challenge-only subset don't reconstruct it by any simple combination). **This is a constraint on 7b's UI, not just an implementation detail:** the drill-down must present research and challenge scores as "what each line of inquiry found," never as components of a total that add up. An empty subset renders as an absence ("No challenge runs yet"), never as a neutral `0.00` — consistent with the existing "Not analyzed" convention.
+- **The sub-scores deliberately do not sum, or average, to `overall`** — each is an independent weighted average over a different denominator. This is asserted directly as a unit-test property (`overall` equals `claimHealth` over all links; a research-only subset and a challenge-only subset don't reconstruct it by any simple combination). **This is a constraint on the drill-down's UI (Phase 7c), not just an implementation detail:** the drill-down must present research and challenge scores as "what each line of inquiry found," never as components of a total that add up. An empty subset renders as an absence ("No challenge runs yet"), never as a neutral `0.00` — consistent with the existing "Not analyzed" convention.
 
-**Out of scope for 7a and 7b both (YAGNI, per the design spec):**
+**Out of scope for 7a, 7b, and 7c alike (YAGNI, per the design spec):**
 
 - Challenge runs on the weekly cron. The cron keeps emitting research runs only — challenge stays user-triggered for cost control and a clearer trace story.
 - Per-claim challenge runs. A challenge run always targets the whole thesis.
@@ -93,7 +94,7 @@ It produced 6 model turns, 12 tool results from real sources, 7 pieces of eviden
 
 `--thesis` is not optional for a re-recording: `claim_indices` and the brief's `claim_index` are positional into the ordinal-ordered claim list of whichever thesis is used, so recording against a different claim set silently maps arguments onto the wrong claims — the indices stay in range, so nothing errors. `--live` refuses to run alongside `USE_AI_FIXTURES=1` and prompts for typed confirmation before spending. The harness writes only the files whose sink was non-empty, so a short-circuited brief or digest leaves the existing committed file alone rather than overwriting it with content its reader would reject.
 
-Seeding `/demo` with a challenge run remains **Phase 7c** work — the demo trace route does not render the brief yet. The fixture no longer blocks it.
+Seeding `/demo` with a challenge run was **Phase 7c** work — the demo trace route did not render the brief yet. The fixture no longer blocked it, and 7c closed the gap: `scripts/seed-demo.ts` now seeds a research run and a challenge run with its brief via `lib/demo/seed-run.ts`'s `seedFixturedRun`, and the demo trace route renders the brief the same way the authenticated trace does. See "Phase 7c" below. The repo owner re-runs the seed script against the live database to actually populate `/demo`; that run is separate from this doc.
 
 ## What 7a leaves wired but untriggered
 
@@ -103,6 +104,24 @@ Nothing in the app sends `mode: "challenge"` yet — the trigger is 7b's. Two th
 
 **The `mode` argument needs Zod validation at the server-action boundary**, like every other action input, and `createAgentRun(thesisId, trigger, { mode })` takes it through the options object.
 
+**Both resolved in Phase 7b.** `triggerAgentRun` (`app/(app)/theses/agent-actions.ts`) now validates `mode` with `AgentRunModeSchema` and derives the fixture scenario from the validated mode via `scenarioForMode`, so a challenge run can no longer carry the research scenario by accident.
+
 ---
 
-7b (challenge trigger, brief rendering, the per-claim drill-down, `/demo` parity, design pass) gets its own plan. Read the design spec's UI section as a starting point, not a finished design — it was written before 7a shipped, and the health-split and `claimOrdinal` constraints above are firmer than anything it says about layout.
+## Phase 7c — the claim drill-down (shipped)
+
+**What shipped:** a per-claim drill-down route (`app/(app)/theses/[thesisId]/claims/[claimId]/page.tsx`, mirrored at `app/demo/claims/[claimId]/page.tsx`) that turns `claimHealthBreakdown` and `rankContributions` (`lib/health/contribution.ts`) into something a recruiter can read — `HealthSplit` for the research/challenge breakdown, a weighted `ClaimEvidenceList` for the evidence itself, and `LatestChallengeBrief` bookmarking the newest challenge brief from the thesis page. `/demo` gets full parity: the demo dashboard links into the same drill-down, and the demo trace now renders the brief through the same `loadTraceBrief` (`lib/agent/trace-brief.ts`) the authenticated trace already used, rather than a second copy of that logic.
+
+**The decay clock is evaluated at `claim.currentHealthUpdatedAt`, never at render time.** `ClaimDrilldown` reads the claim's `currentHealthUpdatedAt` once and passes it as `now` to both `claimHealthBreakdown` and `rankContributions`. Recomputing decay against the actual wall-clock render time would drift from `claims.current_health_score` — the longer a thesis sits un-analyzed, the bigger the drift, which is precisely the situation this product exists to surface. Fixing the clock to the moment the stored score was computed is what lets the drill-down reproduce the exact number the dashboard already shows, rather than a plausible-looking but different one.
+
+**The contribution decomposition is exact; the health split deliberately is not — this is the sharpest distinction in the phase.** `claimHealth` is a weighted average, so each link's `impactValue × weight / totalWeight` is literally one term of that sum: `rankContributions`'s `contribution` field sums exactly to the claim's `overall` score, and this is asserted as a test property, not just claimed in a comment. The research/challenge split in `claimHealthBreakdown` is the opposite: two independent weighted averages computed over two different denominators (each line of inquiry's own link count), which do not combine into `overall` by any simple operation — not a sum, not an average. `HealthSplit` says so directly in its standing copy so the UI never lets these two ideas blur into each other.
+
+**The `selectBriefEvidence` tie-break defect and its fix.** The function ranks a thesis's standing weakening evidence by weight and breaks ties deterministically so the brief's positional citations stay stable. It originally broke ties on `evidenceId` — stable only as long as evidence rows persist. `scripts/seed-demo.ts` deletes and recreates the demo thesis on every re-seed, minting fresh UUIDs, and the seeded links share a `createdAt` so decay is uniform and weight collapses to `confidence` alone, making ties the common case rather than the rare one. Because a brief's citations (`evidence_indices`) are positional indices into the ranked evidence list, a reshuffled tie order silently re-paired the challenger's arguments with unrelated sources on every re-seed — nothing errored, the indices stayed in range, the demo just read wrong. The fix breaks ties on content instead — source domain, then extracted text — which is stable across re-seeds because it doesn't depend on row identity.
+
+**Two dead 7a functions resolved.** `listLinksForClaimWithMode`, added in 7a with no caller, is deleted; `listClaimEvidenceDetail` is the drill-down's actual query. `getLatestBriefForThesis`, also caller-less since 7a, gets its first caller — the thesis page and `/demo` both use it to source `LatestChallengeBrief`.
+
+**Still deferred:** the challenge brief's recorded real headline runs to 113 characters — longer than the roughly 90 the 7b design assumed when it sized `ChallengeBrief`'s heading. How that headline wraps at 113 characters has not been revisited in this phase.
+
+---
+
+Read the design spec's UI section (`docs/superpowers/specs/2026-08-17-phase-7-challenge-design.md`) as historical context for what 7b and 7c actually built, not a finished design — it was written before 7a shipped, and the health-split and `claimOrdinal` constraints described above are firmer than anything it says about layout.
