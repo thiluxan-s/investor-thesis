@@ -19,9 +19,17 @@ export const ChallengeBriefSchema = z.object({
 export type ChallengeBriefOutput = z.infer<typeof ChallengeBriefSchema>;
 
 // What we persist to challenge_briefs.points, after resolving indices to ids.
-export type ChallengeBriefPoint = {
-  claimId: string;
-  claimOrdinal: number;
-  argument: string;
-  evidenceIds: string[];
-};
+// challenge_briefs.points is JSONB, so a row written by an older or future
+// promptVersion could be missing a field (e.g. no evidenceIds) — validate at
+// the read boundary rather than trusting the cast, since the trace page must
+// never crash rendering a brief.
+export const PersistedChallengeBriefPointSchema = z.object({
+  claimId: z.string().min(1),
+  claimOrdinal: z.number().int().min(0),
+  argument: z.string().min(1),
+  evidenceIds: z.array(z.string()),
+});
+
+export const PersistedChallengeBriefPointsSchema = z.array(PersistedChallengeBriefPointSchema);
+
+export type ChallengeBriefPoint = z.infer<typeof PersistedChallengeBriefPointSchema>;

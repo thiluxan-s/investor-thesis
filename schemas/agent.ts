@@ -10,6 +10,8 @@ export type AgentRunStatus = (typeof AGENT_RUN_STATUSES)[number];
 export type AgentRunTrigger = (typeof AGENT_RUN_TRIGGERS)[number];
 export type AgentRunMode = (typeof AGENT_RUN_MODES)[number];
 
+export const AgentRunModeSchema = z.enum(AGENT_RUN_MODES);
+
 export const FORM_TYPES = ["10-K", "10-Q", "8-K"] as const;
 
 export const WebSearchInputSchema = z.object({

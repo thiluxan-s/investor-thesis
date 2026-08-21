@@ -11,6 +11,7 @@ import { StatusSelect } from "@/components/theses/StatusSelect";
 import { NotesEditor } from "@/components/theses/NotesEditor";
 import { DeleteThesisButton } from "@/components/theses/DeleteThesisButton";
 import { AnalyzeNowButton } from "@/components/agent/AnalyzeNowButton";
+import { ChallengeButton } from "@/components/agent/ChallengeButton";
 import { AgentRunPanel } from "@/components/agent/AgentRunPanel";
 import { listSnapshotsForThesis } from "@/lib/db/repositories/health-snapshots";
 import { HealthChart } from "@/components/theses/HealthChart";
@@ -72,7 +73,10 @@ export default async function ThesisDetailPage({
             </span>
           </div>
         </div>
-        <AnalyzeNowButton thesisId={thesis.id} disabled={Boolean(activeRun)} />
+        <div className="flex items-center gap-2">
+          <ChallengeButton thesisId={thesis.id} disabled={Boolean(activeRun)} />
+          <AnalyzeNowButton thesisId={thesis.id} disabled={Boolean(activeRun)} />
+        </div>
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_280px]">

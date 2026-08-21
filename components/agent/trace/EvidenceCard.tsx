@@ -17,7 +17,10 @@ export function EvidenceCard({
   verdicts: EvidenceVerdict[];
 }) {
   return (
-    <div className="my-2.5 rounded-lg border border-zinc-200 border-l-[3px] border-l-health-strong bg-white px-3 py-2.5">
+    <div
+      id={`evidence-${ev.id}`}
+      className="my-2.5 scroll-mt-24 rounded-lg border border-zinc-200 border-l-[3px] border-l-health-strong bg-white px-3 py-2.5"
+    >
       <div className="text-[11px] text-zinc-400">
         <span className="font-mono">{domain}</span>
       </div>

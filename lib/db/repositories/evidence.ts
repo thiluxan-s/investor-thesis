@@ -1,5 +1,5 @@
 import "server-only";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { evidence, type Evidence } from "@/lib/db/schema";
 
@@ -16,4 +16,11 @@ export async function createEvidence(input: {
 
 export async function listEvidenceForRun(runId: string): Promise<Evidence[]> {
   return db.select().from(evidence).where(eq(evidence.agentRunId, runId)).orderBy(evidence.createdAt);
+}
+
+// Evidence by id, for brief citations that belong to earlier runs than the one
+// being viewed.
+export async function listEvidenceByIds(ids: string[]): Promise<Evidence[]> {
+  if (ids.length === 0) return [];
+  return db.select().from(evidence).where(inArray(evidence.id, ids));
 }

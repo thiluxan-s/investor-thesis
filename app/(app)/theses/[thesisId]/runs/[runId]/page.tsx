@@ -9,9 +9,14 @@ import { getSourcesByIds } from "@/lib/db/repositories/sources";
 import { listLinksForEvidenceIds } from "@/lib/db/repositories/claim-evidence-links";
 import { buildEvidenceVerdicts, type EvidenceVerdict } from "@/lib/agent/evidence-verdicts";
 import { isTerminalStatus } from "@/lib/agent/run-status";
+import { getBriefForRun } from "@/lib/db/repositories/challenge-briefs";
+import { listEvidenceByIds } from "@/lib/db/repositories/evidence";
+import { resolveBriefCitations, type CitationSource } from "@/lib/agent/brief-citations";
 import { PollWhileRunning } from "@/components/agent/PollWhileRunning";
 import { RunHeader } from "@/components/agent/trace/RunHeader";
 import { IterationCard } from "@/components/agent/trace/IterationCard";
+import { ChallengeBrief, NoChallengeBrief } from "@/components/agent/trace/ChallengeBrief";
+import { PersistedChallengeBriefPointsSchema } from "@/lib/ai/schemas/challenge-brief";
 
 export default async function TracePage({
   params,
@@ -44,6 +49,42 @@ export default async function TracePage({
     ]),
   );
 
+  // Challenge runs carry a brief. Its citations point at the thesis's standing
+  // weakening evidence, so some may belong to earlier runs and have no card here.
+  const rawBrief = run.mode === "challenge" ? await getBriefForRun(run.id) : null;
+  // points is JSONB — a row written by an older or future promptVersion could
+  // be shaped differently (e.g. missing evidenceIds). Validate rather than
+  // cast: a malformed brief must never 500 the app's most important screen.
+  const parsedPoints = rawBrief ? PersistedChallengeBriefPointsSchema.safeParse(rawBrief.points) : null;
+  const brief = parsedPoints?.success ? rawBrief : null;
+  let resolvedPoints: ReturnType<typeof resolveBriefCitations> = [];
+  if (brief && parsedPoints?.success) {
+    const points = parsedPoints.data;
+    const citedIds = [...new Set(points.flatMap((p) => p.evidenceIds))];
+    const thisRunEvidenceIds = new Set(evidence.map((e) => e.id));
+    const foreignIds = citedIds.filter((id) => !thisRunEvidenceIds.has(id));
+    const foreignEvidence = await listEvidenceByIds(foreignIds);
+    const foreignSources = await getSourcesByIds([...new Set(foreignEvidence.map((e) => e.sourceId))]);
+    const foreignSourceById = new Map(foreignSources.map((s) => [s.id, s]));
+
+    const known = new Map<string, CitationSource>();
+    for (const e of evidence) {
+      const src = sourcesById.get(e.sourceId);
+      if (src) known.set(e.id, { evidenceId: e.id, agentRunId: e.agentRunId, title: src.title ?? src.domain, domain: src.domain });
+    }
+    for (const e of foreignEvidence) {
+      const src = foreignSourceById.get(e.sourceId);
+      if (src) known.set(e.id, { evidenceId: e.id, agentRunId: e.agentRunId, title: src.title ?? src.domain, domain: src.domain });
+    }
+
+    resolvedPoints = resolveBriefCitations(
+      points,
+      run.id,
+      known,
+      new Map(thesis.claims.map((c) => [c.id, { statement: c.statement }])),
+    );
+  }
+
   // Evidence is attached to the LAST iteration (return_result) in v1; group there.
   const lastIterId = iterations.at(-1)?.id;
 
@@ -57,6 +98,18 @@ export default async function TracePage({
 
       {run.status === "failed" && run.error && (
         <p className="mt-4 rounded-lg bg-[#fbf1ef] px-4 py-3 text-sm text-[#C0492F]">{run.error}</p>
+      )}
+
+      {brief && (
+        <ChallengeBrief
+          headline={brief.headline}
+          summary={brief.summary}
+          points={resolvedPoints}
+          thesisId={thesisId}
+        />
+      )}
+      {run.mode === "challenge" && !rawBrief && isTerminalStatus(run.status) && run.status !== "failed" && (
+        <NoChallengeBrief />
       )}
 
       <div className="relative mt-6 pl-[30px]">

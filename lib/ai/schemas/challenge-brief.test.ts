@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ChallengeBriefSchema } from "./challenge-brief";
+import { ChallengeBriefSchema, PersistedChallengeBriefPointsSchema } from "./challenge-brief";
 
 const valid = {
   headline: "Margin pressure is showing up before the revenue slowdown",
@@ -37,5 +37,27 @@ describe("ChallengeBriefSchema", () => {
 
   it("rejects an empty summary", () => {
     expect(ChallengeBriefSchema.safeParse({ ...valid, summary: "" }).success).toBe(false);
+  });
+});
+
+describe("PersistedChallengeBriefPointsSchema", () => {
+  const validPoint = {
+    claimId: "11111111-1111-1111-1111-111111111111",
+    claimOrdinal: 0,
+    argument: "Gross margin fell 200bps QoQ.",
+    evidenceIds: ["22222222-2222-2222-2222-222222222222"],
+  };
+
+  it("accepts a valid persisted point array", () => {
+    expect(PersistedChallengeBriefPointsSchema.safeParse([validPoint]).success).toBe(true);
+  });
+
+  it("accepts an empty array", () => {
+    expect(PersistedChallengeBriefPointsSchema.safeParse([]).success).toBe(true);
+  });
+
+  it("rejects a point missing evidenceIds (e.g. an older or future promptVersion's shape)", () => {
+    const { evidenceIds: _evidenceIds, ...withoutEvidenceIds } = validPoint;
+    expect(PersistedChallengeBriefPointsSchema.safeParse([withoutEvidenceIds]).success).toBe(false);
   });
 });

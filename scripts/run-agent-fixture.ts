@@ -15,6 +15,27 @@
  *
  * --conditions=react-server makes Node resolve the "server-only" no-op export
  * (the real package throws outside Next's server bundler).
+ *
+ * --- Recording a fixture from the live API (real cost) ---
+ *
+ * The two runs above are both OFFLINE — they replay `__fixtures__/agent-runs/`
+ * and never call Anthropic. To actually record a scenario, pass --live and
+ * --thesis, and do NOT set USE_AI_FIXTURES (the script refuses to start if
+ * it's set):
+ *
+ *   node --conditions=react-server --env-file=.env.local --import tsx \
+ *     scripts/run-agent-fixture.ts nvda-challenge challenge \
+ *     --live --thesis <demo-thesis-id>
+ *
+ * --thesis is not optional for a re-recording: the researcher's claim_indices
+ * and the brief's claim_index are positional into that thesis's
+ * ordinal-ordered claim list. Recording against a thesis with a different
+ * claim set silently maps arguments onto the wrong claims — the indices stay
+ * in range, so nothing errors.
+ *
+ * --live prompts for typed confirmation ("record") before spending money, and
+ * only overwrites the fixture files whose sink was actually non-empty this
+ * run — see writeScenarioFixtures in lib/ai/fixture-capture.ts.
  */
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -41,14 +62,44 @@ import { ChallengeBriefFixtureReader } from "@/lib/ai/challenge-brief-fixtures";
 import { getBriefForRun } from "@/lib/db/repositories/challenge-briefs";
 import { writeBriefForRun } from "@/lib/ai/challenge-pipeline";
 import type { ChallengeBriefPoint } from "@/lib/ai/schemas/challenge-brief";
-import type { AgentRunMode } from "@/schemas/agent";
+import { createInterface } from "node:readline/promises";
+import { serverEnv } from "@/lib/env.server";
+import { createAnthropicClient } from "@/lib/ai/client";
+import { buildToolContext } from "@/lib/ai/tool-context";
+import {
+  parseHarnessArgs,
+  tapClient,
+  toolResultsFromIterations,
+  writeScenarioFixtures,
+} from "@/lib/ai/fixture-capture";
+import { join } from "node:path";
 
 async function main() {
-  const scenario = process.argv[2] ?? "nvda-happy-path";
-  const mode = (process.argv[3] as AgentRunMode) ?? "research";
+  const args = parseHarnessArgs(process.argv.slice(2));
+  const { scenario, mode, live } = args;
 
-  const [thesis] = await db.select().from(theses).limit(1);
+  // --live spends real money. Refuse the incoherent combination outright rather
+  // than silently ignoring one half of it.
+  if (live && serverEnv.USE_AI_FIXTURES) {
+    throw new Error("--live cannot run with USE_AI_FIXTURES=1. Unset it and re-run.");
+  }
+
+  const [thesis] = args.thesisId
+    ? await db.select().from(theses).where(eq(theses.id, args.thesisId)).limit(1)
+    : await db.select().from(theses).limit(1);
   if (!thesis) throw new Error("Seed a thesis first (create one in the app).");
+
+  if (live) {
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    console.log(`\nLIVE RUN — this calls the Anthropic API and spends real money.`);
+    console.log(`  thesis:   ${thesis.ticker} — ${thesis.title} (${thesis.id})`);
+    console.log(`  scenario: ${scenario}  mode: ${mode}`);
+    console.log(`  writes:   __fixtures__/agent-runs/${scenario}/ (5 files, overwritten)\n`);
+    const answer = await rl.question(`Type "record" to continue: `);
+    rl.close();
+    if (answer.trim() !== "record") throw new Error("Aborted.");
+  }
+
   const cs = await db
     .select()
     .from(claimsTable)
@@ -58,19 +109,33 @@ async function main() {
   const run = await createAgentRun(thesis.id, "manual", { mode });
   await markRunning(run.id);
 
-  const reader = new FixtureReader(FIXTURE_ROOT, scenario);
-  const client: AnthropicLike = {
-    createMessage: async () => reader.nextMessage() as Anthropic.Message,
+  const captured = {
+    messages: [] as unknown[],
+    evaluations: [] as unknown[],
+    challengeBrief: [] as unknown[],
+    digest: [] as unknown[],
   };
-  // Tool execution is replayed from the fixture (same mechanism as run-agent.ts).
-  const toolRunner = async (): Promise<ToolResult> => ({ ok: true, output: reader.nextToolResult() });
-  const toolContext: ToolContext = {
-    search: { search: async () => [] },
-    fetcher: async () => ({ status: 200, html: "", finalUrl: "" }),
-    edgarClient: async () => [],
-    useFixtures: true,
-    scenario,
-  };
+
+  const reader = live ? null : new FixtureReader(FIXTURE_ROOT, scenario);
+  const client: AnthropicLike = live
+    ? tapClient(createAnthropicClient(serverEnv.ANTHROPIC_API_KEY!), captured.messages)
+    : { createMessage: async () => reader!.nextMessage() as Anthropic.Message };
+
+  // Offline: tool execution is replayed from the fixture (same mechanism as
+  // run-agent.ts). Live: undefined, so the loop runs the real tools and we
+  // recover their outputs from the persisted iterations afterwards.
+  const toolRunner = live
+    ? undefined
+    : async (): Promise<ToolResult> => ({ ok: true, output: reader!.nextToolResult() });
+  const toolContext: ToolContext = live
+    ? buildToolContext(scenario)
+    : {
+        search: { search: async () => [] },
+        fetcher: async () => ({ status: 200, html: "", finalUrl: "" }),
+        edgarClient: async () => [],
+        useFixtures: true,
+        scenario,
+      };
 
   const persist: ResearcherPersist = {
     appendIteration: (it) => appendIteration({ agentRunId: run.id, ...it }),
@@ -118,10 +183,10 @@ async function main() {
   const ev = await listEvidenceForRun(run.id);
 
   // --- Evaluation pipeline (offline, fixture-backed) ---
-  const evalReader = new EvaluationFixtureReader(scenario);
-  const evalClient: AnthropicLike = {
-    createMessage: async () => evalReader.next() as Anthropic.Message,
-  };
+  const evalReader = live ? null : new EvaluationFixtureReader(scenario);
+  const evalClient: AnthropicLike = live
+    ? tapClient(createAnthropicClient(serverEnv.ANTHROPIC_API_KEY!), captured.evaluations)
+    : { createMessage: async () => evalReader!.next() as Anthropic.Message };
   const pipelineClaims = cs.map((c) => ({ id: c.id, ordinal: c.ordinal, statement: c.statement, category: c.category }));
   const pairs = await evaluateMatrix({
     claims: pipelineClaims,
@@ -142,16 +207,18 @@ async function main() {
     ]),
     snapshotsByThesis: new Map([[thesis.id, snapshots.map((s) => ({ overallScore: Number(s.overallScore) }))]]),
   });
-  const digestClient: AnthropicLike = { createMessage: async () => new DigestFixtureReader(scenario).next() as Anthropic.Message };
+  const digestClient: AnthropicLike = live
+    ? tapClient(createAnthropicClient(serverEnv.ANTHROPIC_API_KEY!), captured.digest)
+    : { createMessage: async () => new DigestFixtureReader(scenario).next() as Anthropic.Message };
   const digest = changed.length ? await summarize(changed, { client: digestClient }) : { theses: [] };
 
   // --- Challenge brief (offline, fixture-backed; only for mode="challenge") ---
   let brief: { headline: string; pointCount: number } | null = null;
   if (mode === "challenge") {
-    const briefReader = new ChallengeBriefFixtureReader(scenario);
-    const briefClient: AnthropicLike = {
-      createMessage: async () => briefReader.next() as Anthropic.Message,
-    };
+    const briefReader = live ? null : new ChallengeBriefFixtureReader(scenario);
+    const briefClient: AnthropicLike = live
+      ? tapClient(createAnthropicClient(serverEnv.ANTHROPIC_API_KEY!), captured.challengeBrief)
+      : { createMessage: async () => briefReader!.next() as Anthropic.Message };
     const briefClaims = cs.map((c) => ({ id: c.id, ordinal: c.ordinal, statement: c.statement }));
     const { written, reason } = await writeBriefForRun({
       thesisId: thesis.id,
@@ -173,6 +240,23 @@ async function main() {
       console.log(`Challenge brief: "${stored.headline}" (${points.length} points)`);
     } else {
       console.log(`Challenge brief not written: ${reason}`);
+    }
+  }
+
+  if (live) {
+    const dir = join(FIXTURE_ROOT, scenario);
+    const { written, skipped } = writeScenarioFixtures(dir, {
+      messages: captured.messages,
+      tools: toolResultsFromIterations(its),
+      evaluations: captured.evaluations,
+      challengeBrief: captured.challengeBrief,
+      digest: captured.digest,
+    });
+    console.log(`Wrote to ${dir}: ${written.length ? written.join(", ") : "(nothing)"}`);
+    if (skipped.length > 0) {
+      console.log(
+        `Skipped (sink was empty this run — existing committed file left untouched): ${skipped.join(", ")}`,
+      );
     }
   }
 
