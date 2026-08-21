@@ -64,18 +64,46 @@ export async function listLinksForEvidenceIds(evidenceIds: string[]): Promise<Cl
   return db.select().from(claimEvidenceLinks).where(inArray(claimEvidenceLinks.evidenceId, evidenceIds));
 }
 
-// Links for one claim, carrying the mode of the run that produced the evidence.
-// Powers the per-claim health split (lib/health/score.ts claimHealthBreakdown).
-export async function listLinksForClaimWithMode(
-  claimId: string,
-): Promise<(ClaimEvidenceLink & { runMode: AgentRunMode })[]> {
+// Everything one claim's drill-down needs, in a single round trip: the
+// evaluator's verdict, the evidence text, its source, and the mode of the run
+// that found it. The link's createdAt (not the evidence's) is what decay
+// weights against, matching claimHealth.
+export type ClaimEvidenceDetail = {
+  evidenceId: string;
+  impact: EvidenceImpact;
+  confidence: number;
+  reasoning: string;
+  createdAt: Date;
+  extractedText: string;
+  sourceUrl: string;
+  sourceTitle: string | null;
+  sourceDomain: string;
+  agentRunId: string;
+  runMode: AgentRunMode;
+};
+
+export async function listClaimEvidenceDetail(claimId: string): Promise<ClaimEvidenceDetail[]> {
   const rows = await db
-    .select({ link: claimEvidenceLinks, runMode: agentRuns.mode })
+    .select({
+      evidenceId: claimEvidenceLinks.evidenceId,
+      impact: claimEvidenceLinks.impact,
+      confidence: claimEvidenceLinks.confidence,
+      reasoning: claimEvidenceLinks.reasoning,
+      createdAt: claimEvidenceLinks.createdAt,
+      extractedText: evidence.extractedText,
+      sourceUrl: sources.url,
+      sourceTitle: sources.title,
+      sourceDomain: sources.domain,
+      agentRunId: evidence.agentRunId,
+      runMode: agentRuns.mode,
+    })
     .from(claimEvidenceLinks)
     .innerJoin(evidence, eq(claimEvidenceLinks.evidenceId, evidence.id))
+    .innerJoin(sources, eq(evidence.sourceId, sources.id))
     .innerJoin(agentRuns, eq(evidence.agentRunId, agentRuns.id))
     .where(eq(claimEvidenceLinks.claimId, claimId));
-  return rows.map((r) => ({ ...r.link, runMode: r.runMode }));
+  // confidence is numeric(3,2) — Drizzle hands it back as a string.
+  return rows.map((r) => ({ ...r, confidence: Number(r.confidence) }));
 }
 
 // Every weakening link across a thesis's claims — the challenger's input. Scoped
